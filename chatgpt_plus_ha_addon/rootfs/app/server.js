@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import fs from 'fs/promises';
 import http from 'http';
 import net from 'net';
 import path from 'path';
@@ -13,6 +14,35 @@ import { ChatGPTClient } from './chatgpt-client.js';
 
 const app = express();
 app.use(express.json());
+
+const stripIngressPath = (urlPath, ingressPath) => {
+  if (!ingressPath || typeof ingressPath !== 'string') {
+    return urlPath;
+  }
+  if (urlPath.startsWith(ingressPath)) {
+    const stripped = urlPath.slice(ingressPath.length);
+    return stripped.length ? stripped : '/';
+  }
+  return urlPath;
+};
+
+app.use((req, res, next) => {
+  const ingressPath = req.headers['x-ingress-path'];
+  if (ingressPath) {
+    req.url = stripIngressPath(req.url, ingressPath);
+  } else if (req.url.includes('/api/hassio_ingress/')) {
+    const tokenIndex = req.url.indexOf('/api/hassio_ingress/');
+    if (tokenIndex >= 0) {
+      const afterToken = req.url.slice(tokenIndex + '/api/hassio_ingress/'.length);
+      const nextSlash = afterToken.indexOf('/');
+      if (nextSlash >= 0) {
+        const rewritten = afterToken.slice(nextSlash);
+        req.url = rewritten.length ? rewritten : '/';
+      }
+    }
+  }
+  next();
+});
 
 // Configuration
 const PORT = process.env.PORT || 3000;
@@ -25,6 +55,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const novncPath = path.resolve(__dirname, 'node_modules', '@novnc', 'novnc');
 
 app.use('/novnc', express.static(novncPath));
+
+async function _logNoVncStatus() {
+  try {
+    await fs.access(path.join(novncPath, 'core', 'rfb.js'));
+    console.log('noVNC assets found');
+  } catch (error) {
+    console.warn('noVNC assets not found:', error.message);
+  }
+}
 
 // Initialize ChatGPT client
 const chatgptClient = new ChatGPTClient({
@@ -192,6 +231,14 @@ app.get('/vnc', (req, res) => {
       statusEl.textContent = text;
     };
 
+    const buildRfbUrl = () => {
+      const baseUrl = new URL(window.location.href);
+      baseUrl.search = '';
+      baseUrl.hash = '';
+      baseUrl.pathname = baseUrl.pathname.replace(/\\/vnc\\/?$/, '/');
+      return new URL('novnc/core/rfb.js', baseUrl).toString();
+    };
+
     const pageUrl = new URL(window.location.href);
     pageUrl.protocol = pageUrl.protocol === 'https:' ? 'wss:' : 'ws:';
     pageUrl.pathname = pageUrl.pathname.replace(/\\/vnc\\/?$/, '/vnc/ws');
@@ -199,9 +246,12 @@ app.get('/vnc', (req, res) => {
     pageUrl.hash = '';
     const wsUrl = pageUrl.toString();
 
-    import('./novnc/core/rfb.js')
-      .then((module) => {
-        const RFB = module.default;
+    const loadRfb = (src) => import(src).then((module) => module.default);
+    const localRfbUrl = buildRfbUrl();
+
+    loadRfb(localRfbUrl)
+      .catch(() => loadRfb('https://cdn.jsdelivr.net/npm/@novnc/novnc@1.4.0/core/rfb.js'))
+      .then((RFB) => {
         const rfb = new RFB(document.getElementById('screen'), wsUrl, {
           shared: true,
           scaleViewport: true,
@@ -349,7 +399,12 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 wss.on('connection', (ws) => {
+  console.log('VNC client connected');
   const vncSocket = net.createConnection(VNC_PORT, VNC_HOST);
+
+  vncSocket.on('connect', () => {
+    console.log('Connected to VNC server');
+  });
 
   ws.on('message', (data) => {
     if (vncSocket.writable) {
@@ -373,9 +428,15 @@ wss.on('connection', (ws) => {
   };
 
   ws.on('close', closeAll);
-  ws.on('error', closeAll);
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+    closeAll();
+  });
   vncSocket.on('close', closeAll);
-  vncSocket.on('error', closeAll);
+  vncSocket.on('error', (error) => {
+    console.error('VNC socket error:', error);
+    closeAll();
+  });
 });
 
 app.post('/api/session/clear', checkInitialized, async (req, res) => {
@@ -407,6 +468,7 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
+  _logNoVncStatus();
   console.log(`ChatGPT Sidecar running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });

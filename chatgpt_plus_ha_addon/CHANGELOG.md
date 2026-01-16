@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.5
+- Fix ingress path handling for VNC assets and WebSocket.
+- Add VNC connection logging and resilient noVNC loader.
+
 ## 1.1.4
 - Fix VNC WebSocket protocol under ingress.
 
