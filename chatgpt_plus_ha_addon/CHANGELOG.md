@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.6
+- Improve response detection to avoid timeouts on completed replies.
+
 ## 1.1.5
 - Fix ingress path handling for VNC assets and WebSocket.
 - Add VNC connection logging and resilient noVNC loader.

@@ -24,7 +24,8 @@ const SELECTORS = {
 
     // Response detection
     assistantMessage: '[data-message-author-role="assistant"]',
-    streamingIndicator: '[data-testid="stop-button"]',
+    assistantMessageFallback: 'article[data-testid="conversation-turn"][data-message-author-role="assistant"]',
+    streamingIndicator: '[data-testid="stop-button"], button[aria-label="Stop generating"]',
 
     // New conversation
     newChatButton: 'a[href="/"]',
@@ -295,34 +296,37 @@ export class ChatGPTClient {
      */
     async _waitForResponse(timeout = 120000) {
         const startTime = Date.now();
-        let lastMessageCount = 0;
-        let stableCount = 0;
+        const stableCyclesRequired = 4;
+        let stableCycles = 0;
+        let hasResponseStarted = false;
+
+        const initialMessages = await this._getAssistantMessages();
+        const baselineCount = initialMessages.length;
+        const baselineText = await this._getLastMessageText(initialMessages);
+        let lastText = baselineText;
 
         while (Date.now() - startTime < timeout) {
-            // Check if still streaming
+            const messages = await this._getAssistantMessages();
+            const currentCount = messages.length;
+            const currentText = await this._getLastMessageText(messages);
             const streamingIndicator = await this.page.$(SELECTORS.streamingIndicator);
 
-            if (!streamingIndicator) {
-                // No streaming indicator, might be done
-                // Wait a bit and check for stable message
-                await this.page.waitForTimeout(500);
+            if (!hasResponseStarted) {
+                if (currentCount > baselineCount || (currentText && currentText !== baselineText)) {
+                    hasResponseStarted = true;
+                    lastText = currentText;
+                }
+            } else if (currentText) {
+                if (currentText === lastText) {
+                    stableCycles += 1;
+                } else {
+                    stableCycles = 0;
+                    lastText = currentText;
+                }
 
-                const messages = await this.page.$$(SELECTORS.assistantMessage);
-
-                if (messages.length > 0) {
-                    const currentCount = messages.length;
-
-                    if (currentCount === lastMessageCount) {
-                        stableCount++;
-                        if (stableCount >= 3) {
-                            // Message is stable, get the last one
-                            const lastMessage = messages[messages.length - 1];
-                            const text = await lastMessage.textContent();
-                            return text?.trim() || '';
-                        }
-                    } else {
-                        stableCount = 0;
-                        lastMessageCount = currentCount;
+                if (stableCycles >= stableCyclesRequired) {
+                    if (!streamingIndicator || stableCycles >= stableCyclesRequired + 1) {
+                        return currentText.trim();
                     }
                 }
             }
@@ -331,6 +335,23 @@ export class ChatGPTClient {
         }
 
         throw new Error('Timeout waiting for response');
+    }
+
+    async _getAssistantMessages() {
+        let messages = await this.page.$$(SELECTORS.assistantMessage);
+        if (!messages.length) {
+            messages = await this.page.$$(SELECTORS.assistantMessageFallback);
+        }
+        return messages;
+    }
+
+    async _getLastMessageText(messages) {
+        if (!messages.length) {
+            return '';
+        }
+        const lastMessage = messages[messages.length - 1];
+        const text = await lastMessage.textContent();
+        return text ? text.trim() : '';
     }
 
     /**
