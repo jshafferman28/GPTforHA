@@ -146,10 +146,10 @@ async def _async_register_services(hass: HomeAssistant) -> None:
 
         # Get the first available agent
         for entry_data in hass.data[DOMAIN].values():
-            if "agent" in entry_data:
+            if isinstance(entry_data, dict) and "agent" in entry_data:
                 agent: ChatGPTPlusAgent = entry_data["agent"]
                 result = await agent.send_message(message)
-                
+
                 # Fire an event with the response
                 hass.bus.async_fire(
                     f"{DOMAIN}_response",
@@ -169,7 +169,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_new_conversation(call: ServiceCall) -> dict:
         """Handle the new_conversation service call."""
         for entry_data in hass.data[DOMAIN].values():
-            if "agent" in entry_data:
+            if isinstance(entry_data, dict) and "agent" in entry_data:
                 agent: ChatGPTPlusAgent = entry_data["agent"]
                 return await agent.new_conversation()
 
