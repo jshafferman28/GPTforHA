@@ -1,73 +1,78 @@
-# ChatGPT Plus HA
+# GPTforHA (ChatGPT Plus HA)
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-blue.svg)](https://www.home-assistant.io/)
 
-A Home Assistant Add-on and Integration that lets you chat with ChatGPT using your ChatGPT Plus subscription (no OpenAI API key required).
+GPTforHA is a Home Assistant add-on plus integration that connects your ChatGPT Plus account to Home Assistant without an API key. It runs a local sidecar that automates the ChatGPT web UI, then exposes it to Home Assistant for chat, automations, and AI suggestions.
 
-## Features
-- Easy installation through the Home Assistant Add-on Store
-- Sidebar chat panel
-- Conversation memory
-- Services for automations
-- Persistent session after login
+## Capabilities
+- ChatGPT Plus access with no API key
+- Sidebar chat panel inside Home Assistant
+- Automation-ready services for message sending and new conversations
+- Persistent sessions stored in `/config/chatgpt_sessions`
+- Guided login flow with a built-in VNC viewer (for headless=false)
+- AI Task entity so it can appear in Assist > AI suggestions
+- Ingress Web UI with health, status, login controls, and session reset
+
+## How it works
+- Add-on: runs the sidecar service and Playwright browser automation
+- Integration: connects Home Assistant to the sidecar API
+- Panel: a built-in chat UI in the HA sidebar
 
 ## Getting started
 
-### Step 1: Install the Add-on (Backend)
-1. Go to Settings > Add-ons > Add-on Store.
-2. Open the menu (top right) and choose Repositories.
-3. Add this URL: `https://github.com/jshafferman28/GPTforHA`
-4. Find "ChatGPT Plus HA" and install it.
-5. Start the add-on (enable Start on boot and Watchdog).
+### Step 1: Install the add-on (backend)
+1. Settings > Add-ons > Add-on Store.
+2. Repositories > add: `https://github.com/jshafferman28/GPTforHA`
+3. Install "ChatGPT Plus HA" and start it.
+4. Enable Start on boot and Watchdog.
 
 Docs: https://www.home-assistant.io/docs/add-ons/
 
-### Step 2: First-Time Login
-1. Open the add-on configuration.
-2. Set `headless: false`.
-3. Save and restart the add-on.
-4. Open the add-on Web UI and click **Start login**.
-5. Click **Open login viewer** and complete the login.
+### Step 2: First-time login
+1. Add-on config: set `headless: false`.
+2. Save and restart the add-on.
+3. Open the add-on Web UI.
+4. Click **Start login**, then **Open login viewer**.
+5. Complete login in the viewer.
 6. Click **Complete login**.
-7. If login fails, click **Clear session** and retry.
-6. Go back to configuration and set `headless: true`.
-7. Save and restart.
+7. If needed, click **Clear session** and retry.
+8. Set `headless: true`, save, restart.
 
-Your session is saved in `/config/chatgpt_sessions`.
-
-### Step 3: Install the Integration (Frontend)
-1. Open HACS.
-2. Add Custom Repository: `https://github.com/jshafferman28/GPTforHA` (Category: Integration).
-3. Install "ChatGPT Plus HA".
-4. Restart Home Assistant.
-5. Go to Settings > Devices & Services > Add Integration.
-6. Search for "ChatGPT Plus HA".
-7. Use the default URL: `http://chatgpt_plus_ha:3000`.
-8. Submit.
+### Step 3: Install the integration (frontend)
+1. HACS > Integrations > Add Custom Repository:
+   `https://github.com/jshafferman28/GPTforHA`
+2. Install "ChatGPT Plus HA".
+3. Restart Home Assistant.
+4. Settings > Devices & Services > Add Integration > "ChatGPT Plus HA".
+5. Use the default sidecar URL (`http://chatgpt_plus_ha:3000`).
 
 Docs: https://hacs.xyz/docs/user/categories/ and https://www.home-assistant.io/docs/configuration/
 
 ## Usage
-Click "ChatGPT" in your sidebar to start chatting.
+- Sidebar: open **ChatGPT** to chat in Home Assistant.
+- Services: use `chatgpt_plus_ha.send_message` and `chatgpt_plus_ha.new_conversation`.
+- AI Suggestions: Settings > Assist > AI suggestions, select **ChatGPT Plus AI Tasks**.
 
-## AI Suggestions
-This integration registers an AI Task entity so it can be selected under Settings > Assist > AI suggestions.
-Choose "ChatGPT Plus AI Tasks" for data generation tasks.
+Docs: https://www.home-assistant.io/docs/assist/ and https://www.home-assistant.io/docs/automation/service-calls/
 
-Docs: https://www.home-assistant.io/docs/assist/
-
-### Services
-- `chatgpt_plus_ha.send_message`
-- `chatgpt_plus_ha.new_conversation`
-
-Docs: https://www.home-assistant.io/docs/automation/service-calls/
+## Configuration
+```
+headless: true
+```
 
 ## Troubleshooting
-Check the add-on logs for browser errors. If login fails, repeat the login steps with headless mode disabled.
+- Login fails: set `headless: false`, restart, use the login viewer, then **Complete login**.
+- Blank viewer or errors: open add-on logs and verify the add-on is running.
+- Stuck session: click **Clear session** or delete `/config/chatgpt_sessions/browser-state.json`.
 
-## Known limitations
-- The login flow requires a browser session managed by Playwright. If you have trouble completing login, delete `/config/chatgpt_sessions/browser-state.json` and retry.
+## Notes
+- This project automates the ChatGPT web UI, so selectors may change over time.
+- Requires a ChatGPT Plus subscription and Home Assistant OS or Supervised.
 
 ## Updates
-After pulling new versions of this repository, refresh the Add-on Store and click **Update** on the add-on. You should not need to uninstall as long as the version changes.
+- Add-on: refresh the Add-on Store and click **Update**.
+- Integration: update via HACS, then restart Home Assistant.
+
+## Support
+Issues: https://github.com/jshafferman28/GPTforHA/issues
