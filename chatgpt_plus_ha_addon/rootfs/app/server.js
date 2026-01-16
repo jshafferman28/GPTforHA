@@ -187,33 +187,35 @@ app.get('/vnc', (req, res) => {
   <div id="screen"></div>
   <div id="status">Connecting...</div>
   <script type="module">
-    import RFB from '/novnc/core/rfb.js';
-
     const statusEl = document.getElementById('status');
-    const baseUrl = new URL(window.location.href);
-    baseUrl.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    baseUrl.pathname = baseUrl.pathname.replace(/\\/vnc\\/?$/, '/vnc');
-    baseUrl.search = '';
-    baseUrl.hash = '';
-
-    const rfb = new RFB(document.getElementById('screen'), baseUrl.toString(), {
-      shared: true,
-      scaleViewport: true,
-    });
-
     const showStatus = (text) => {
       statusEl.textContent = text;
     };
 
-    rfb.addEventListener('connect', () => showStatus('Connected'));
-    rfb.addEventListener('disconnect', (event) => {
-      const clean = event.detail && event.detail.clean;
-      showStatus('Disconnected: ' + (clean ? 'clean' : 'error'));
-    });
-    rfb.addEventListener('securityfailure', (event) => {
-      const status = event.detail && event.detail.status;
-      showStatus('Security failure: ' + (status || 'unknown'));
-    });
+    const pageUrl = new URL(window.location.href);
+    const wsUrl = pageUrl.href.replace(/\\/vnc\\/?$/, '/vnc/ws');
+
+    import('./novnc/core/rfb.js')
+      .then((module) => {
+        const RFB = module.default;
+        const rfb = new RFB(document.getElementById('screen'), wsUrl, {
+          shared: true,
+          scaleViewport: true,
+        });
+
+        rfb.addEventListener('connect', () => showStatus('Connected'));
+        rfb.addEventListener('disconnect', (event) => {
+          const clean = event.detail && event.detail.clean;
+          showStatus('Disconnected: ' + (clean ? 'clean' : 'error'));
+        });
+        rfb.addEventListener('securityfailure', (event) => {
+          const status = event.detail && event.detail.status;
+          showStatus('Security failure: ' + (status || 'unknown'));
+        });
+      })
+      .catch((error) => {
+        showStatus('Failed to load VNC client: ' + (error.message || error));
+      });
   </script>
 </body>
 </html>`);
@@ -391,7 +393,7 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
   const url = new URL(req.url, `http://${req.headers.host}`);
-  if (!url.pathname.endsWith('/vnc')) {
+  if (!url.pathname.endsWith('/vnc/ws') && !url.pathname.endsWith('/vnc')) {
     socket.destroy();
     return;
   }

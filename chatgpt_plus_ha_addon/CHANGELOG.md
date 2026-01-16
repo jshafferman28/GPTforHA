@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.3
+- Fix ingress VNC module path and WebSocket endpoint.
+
 ## 1.1.2
 - Fix Web UI template parsing error in the VNC viewer.
 
