@@ -30,6 +30,10 @@ WORKDIR /app
 # Copy rootfs
 COPY rootfs /
 
+# Ensure scripts are executable and line endings are Unix
+RUN sed -i 's/\r$//' /run.sh \
+    && chmod +x /run.sh
+
 # Set environment variables before npm install
 ENV \
     NODE_ENV=production \
