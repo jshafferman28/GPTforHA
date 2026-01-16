@@ -17,7 +17,230 @@ send_message:
       example: "1699999999999-acde"
       selector:
         text:
+    include_context:
+      name: Include Context
+      description: Include Home Assistant context in the request
+      required: false
+      selector:
+        boolean:
+    include_history:
+      name: Include History
+      description: Include recent history changes in the context
+      required: false
+      selector:
+        boolean:
+    include_logbook:
+      name: Include Logbook
+      description: Include logbook events in the context
+      required: false
+      selector:
+        boolean:
+    history_hours:
+      name: History Hours
+      description: Hours of history to include
+      required: false
+      example: 6
+      selector:
+        number:
+          min: 1
+          max: 24
+          mode: box
+    focus_areas:
+      name: Focus Areas
+      description: Optional area names to prioritize
+      required: false
+      selector:
+        object:
+    focus_entities:
+      name: Focus Entities
+      description: Optional entity IDs to prioritize
+      required: false
+      selector:
+        object:
+    recent_mode:
+      name: What Changed Recently
+      description: Emphasize recent changes in the context
+      required: false
+      selector:
+        boolean:
+    incognito:
+      name: Incognito
+      description: Do not reuse chat history for this request
+      required: false
+      selector:
+        boolean:
 
 new_conversation:
   name: New Conversation
   description: Start a new ChatGPT conversation (clears context)
+
+build_context:
+  name: Build Context
+  description: Build a compact Home Assistant context summary
+  fields:
+    question:
+      name: Question
+      description: The user question to focus the context
+      required: false
+      selector:
+        text:
+    include_history:
+      name: Include History
+      description: Include recent history changes
+      required: false
+      selector:
+        boolean:
+    include_logbook:
+      name: Include Logbook
+      description: Include recent logbook events
+      required: false
+      selector:
+        boolean:
+    history_hours:
+      name: History Hours
+      description: Hours of history to include
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 24
+          mode: box
+    focus_areas:
+      name: Focus Areas
+      description: Optional area names to prioritize
+      required: false
+      selector:
+        object:
+    focus_entities:
+      name: Focus Entities
+      description: Optional entity IDs to prioritize
+      required: false
+      selector:
+        object:
+    recent_mode:
+      name: What Changed Recently
+      description: Emphasize recent changes
+      required: false
+      selector:
+        boolean:
+    summary_only:
+      name: Summary Only
+      description: Return only the compact summary
+      required: false
+      selector:
+        boolean:
+    include_suggestions:
+      name: Include Suggestions
+      description: Include recent AI suggestions in the response
+      required: false
+      selector:
+        boolean:
+
+generate_automation:
+  name: Generate Automation
+  description: Generate or validate Home Assistant automation YAML
+  fields:
+    description:
+      name: Description
+      description: Describe the automation you want
+      required: false
+      selector:
+        text:
+          multiline: true
+    mode:
+      name: Mode
+      description: generate or validate
+      required: false
+      default: generate
+      selector:
+        select:
+          options:
+            - generate
+            - validate
+    yaml:
+      name: YAML
+      description: YAML to validate
+      required: false
+      selector:
+        text:
+          multiline: true
+    include_context:
+      name: Include Context
+      description: Include Home Assistant context in the prompt
+      required: false
+      selector:
+        boolean:
+    include_history:
+      name: Include History
+      required: false
+      selector:
+        boolean:
+    include_logbook:
+      name: Include Logbook
+      required: false
+      selector:
+        boolean:
+    history_hours:
+      name: History Hours
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 24
+          mode: box
+
+compose_notification:
+  name: Compose Notification
+  description: Generate a notification message without sending it
+  fields:
+    event_type:
+      name: Event Type
+      description: Event type (garage_open, leak_detected, motion_at_night, hvac_anomaly)
+      required: true
+      selector:
+        text:
+    entities:
+      name: Entities
+      description: Related entity IDs
+      required: false
+      selector:
+        object:
+    urgency:
+      name: Urgency
+      required: false
+      default: normal
+      selector:
+        select:
+          options:
+            - low
+            - normal
+            - high
+    photo_url:
+      name: Photo URL
+      description: Optional snapshot URL
+      required: false
+      selector:
+        text:
+    include_context:
+      name: Include Context
+      required: false
+      selector:
+        boolean:
+    include_history:
+      name: Include History
+      required: false
+      selector:
+        boolean:
+    include_logbook:
+      name: Include Logbook
+      required: false
+      selector:
+        boolean:
+    history_hours:
+      name: History Hours
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 24
+          mode: box

@@ -36,6 +36,7 @@ class ChatGPTPlusAgent:
         self._session: aiohttp.ClientSession | None = None
         self._conversation_id: str | None = None
         self._last_interaction: datetime | None = None
+        self._default_context_options: dict[str, Any] = {}
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -60,11 +61,27 @@ class ChatGPTPlusAgent:
             _LOGGER.error("Error getting status: %s", e)
             return {"error": str(e)}
 
-    async def send_message(self, message: str) -> dict[str, Any]:
+    async def send_message(
+        self, message: str, context_options: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Send a message to ChatGPT and get the response."""
+        context_options = {**self._default_context_options, **(context_options or {})}
+        include_context = context_options.get("context_enabled", True)
+        incognito = bool(context_options.get("incognito", False))
+
+        if incognito:
+            await self.new_conversation()
+
         await self._maybe_rollover_conversation()
-        context_payload = await build_context(self.hass, CONVERSATION_IDLE_MINUTES)
-        formatted_message = self._format_prompt(message, context_payload)
+
+        formatted_message = message
+        if include_context:
+            context_payload = await build_context(
+                self.hass,
+                message,
+                context_options,
+            )
+            formatted_message = self._format_prompt(message, context_payload)
 
         result = await self._send_message_raw(formatted_message)
 
@@ -76,7 +93,14 @@ class ChatGPTPlusAgent:
         if result.get("success"):
             self._last_interaction = dt_util.utcnow()
 
+        if incognito:
+            self._conversation_id = None
+
         return result
+
+    def update_options(self, options: dict[str, Any]) -> None:
+        """Update default context options for this agent."""
+        self._default_context_options = dict(options or {})
 
     async def new_conversation(self) -> dict[str, Any]:
         """Start a new conversation."""
