@@ -13,6 +13,10 @@ GPTforHA is a Home Assistant add-on plus integration that connects your ChatGPT 
 - Guided login flow with a built-in VNC viewer (for headless=false)
 - AI Task entity so it can appear in Assist > AI suggestions
 - Ingress Web UI with health, status, login controls, and session reset
+- Context-aware prompts with history/logbook summaries
+- Automation/YAML assistant with validation guidance
+- Notification composer with templates and confirmation
+- Lovelace card for summaries, suggestions, and quick actions
 
 ## How it works
 - Add-on: runs the sidecar service and Playwright browser automation
@@ -53,6 +57,8 @@ Docs: https://hacs.xyz/docs/user/categories/ and https://www.home-assistant.io/d
 - Sidebar: open **ChatGPT** to chat in Home Assistant.
 - Services: use `chatgpt_plus_ha.send_message` and `chatgpt_plus_ha.new_conversation`.
 - AI Suggestions: Settings > Assist > AI suggestions, select **ChatGPT Plus AI Tasks**.
+- Automation assistant: use the panel flow to generate YAML and validate it.
+- Notification composer: generate a notification preview, then confirm send.
 
 Docs: https://www.home-assistant.io/docs/assist/ and https://www.home-assistant.io/docs/automation/service-calls/
 
@@ -60,6 +66,45 @@ Docs: https://www.home-assistant.io/docs/assist/ and https://www.home-assistant.
 ```
 headless: true
 ```
+
+### Integration options
+- `context_enabled`: enable context-aware prompts
+- `include_history`: include recent history changes
+- `include_logbook`: include logbook events
+- `history_hours`: history/logbook window (hours)
+- `allowlist_domains` / `denylist_domains`: privacy controls
+- `allowlist_entities` / `denylist_entities`: privacy controls
+- `max_context_entities`: cap number of entities in context
+- `summary_cache_ttl`: cache summary for widgets (seconds)
+- `incognito_mode`: do not store suggestions or reuse chats
+
+Configure these under Settings > Devices & Services > ChatGPT Plus HA > Options.
+
+## Lovelace card
+Add the custom card resource and use it in a dashboard:
+
+Resource:
+```
+/chatgpt_plus_ha/frontend/chatgpt-plus-card.js
+```
+
+Card example:
+```
+type: custom:chatgpt-plus-card
+title: GPTforHA
+summary_ttl: 300
+actions:
+  - label: "Summarize my home"
+    prompt: "Give me a quick home status summary"
+  - label: "Night routine ideas"
+    prompt: "Suggest improvements to my night routine"
+```
+
+## Privacy & Security
+- Entity allow/deny lists control what can be shared.
+- Names/emails/secrets are redacted before prompts are built.
+- Enable incognito mode to avoid storing suggestions or reusing chats.
+- Use the **Context & Privacy** toggles in the chat panel to control context per request.
 
 ## Troubleshooting
 - Login fails: set `headless: false`, restart, use the login viewer, then **Complete login**.
@@ -76,3 +121,11 @@ headless: true
 
 ## Support
 Issues: https://github.com/jshafferman28/GPTforHA/issues
+
+## How to test (fresh install)
+1. Install the add-on, log in once with `headless: false`, then set `headless: true`.
+2. Install the integration via HACS and restart Home Assistant.
+3. Open the ChatGPT panel and send a message with context enabled.
+4. Use **Automation Assistant** to generate YAML and validate it.
+5. Use **Notification Composer** to generate a preview and confirm send.
+6. Add the Lovelace card and confirm summary + quick actions.
