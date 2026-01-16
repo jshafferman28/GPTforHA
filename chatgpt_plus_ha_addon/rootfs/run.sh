@@ -1,7 +1,8 @@
 #!/usr/bin/with-contenv bashio
 
 # Set environment variables from Add-on config
-export HEADLESS=$(bashio::config 'headless')
+export HEADLESS
+HEADLESS="$(bashio::config 'headless')"
 export PORT=3000
 export SESSION_DIR="/config/chatgpt_sessions"
 
