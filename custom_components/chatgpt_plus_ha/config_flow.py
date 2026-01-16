@@ -19,10 +19,9 @@ from .const import (
     DOMAIN,
     API_HEALTH,
     API_STATUS,
-    ADDON_SLUG,
+    ADDON_SLUG_BASE,
     DEFAULT_SIDECAR_PORT,
     SUPERVISOR_URL,
-    SUPERVISOR_ADDON_PROXY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -59,7 +58,7 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         errors = {}
 
             if errors:
-                proxy_url = self._get_supervisor_proxy_url()
+                proxy_url = await self._get_supervisor_proxy_url(session)
                 if proxy_url and proxy_url != sidecar_url:
                     _LOGGER.debug(
                         "Falling back to supervisor proxy URL: %s", proxy_url
@@ -151,28 +150,14 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _get_supervisor_sidecar_url(
         self, session: aiohttp.ClientSession
     ) -> str | None:
-        token = os.environ.get("SUPERVISOR_TOKEN")
-        if not token:
+        addon_slug = await self._resolve_addon_slug(session)
+        if not addon_slug:
             return None
 
-        supervisor_url = os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL).rstrip("/")
-        headers = {"Authorization": f"Bearer {token}"}
-
-        try:
-            async with session.get(
-                f"{supervisor_url}/addons/{ADDON_SLUG}/info",
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status != 200:
-                    return None
-
-                payload = await response.json()
-        except Exception as err:
-            _LOGGER.debug("Supervisor add-on lookup failed: %s", err)
+        info = await self._get_addon_info(session, addon_slug)
+        if not info:
             return None
 
-        info = payload.get("data") or {}
         hostname = info.get("hostname")
         ip_address = info.get("ip_address")
 
@@ -183,13 +168,85 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return None
 
-    def _get_supervisor_proxy_url(self) -> str | None:
+    async def _get_supervisor_proxy_url(
+        self, session: aiohttp.ClientSession
+    ) -> str | None:
+        addon_slug = await self._resolve_addon_slug(session)
+        if not addon_slug:
+            return None
+
+        supervisor_url = os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL).rstrip("/")
+        return f"{supervisor_url}/addons/{addon_slug}/proxy"
+
+    async def _resolve_addon_slug(
+        self, session: aiohttp.ClientSession
+    ) -> str | None:
         token = os.environ.get("SUPERVISOR_TOKEN")
         if not token:
             return None
 
         supervisor_url = os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL).rstrip("/")
-        return f"{supervisor_url}/addons/{ADDON_SLUG}/proxy"
+        headers = {"Authorization": f"Bearer {token}"}
+
+        for candidate in (ADDON_SLUG_BASE,):
+            try:
+                async with session.get(
+                    f"{supervisor_url}/addons/{candidate}/info",
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as response:
+                    if response.status == 200:
+                        return candidate
+            except Exception as err:
+                _LOGGER.debug("Supervisor add-on lookup failed for %s: %s", candidate, err)
+
+        try:
+            async with session.get(
+                f"{supervisor_url}/addons",
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return None
+                payload = await response.json()
+        except Exception as err:
+            _LOGGER.debug("Supervisor add-on list failed: %s", err)
+            return None
+
+        addons = (payload.get("data") or {}).get("addons", [])
+        for addon in addons:
+            slug = addon.get("slug")
+            if not slug:
+                continue
+            if slug == ADDON_SLUG_BASE or slug.endswith(f"_{ADDON_SLUG_BASE}"):
+                return slug
+
+        return None
+
+    async def _get_addon_info(
+        self, session: aiohttp.ClientSession, addon_slug: str
+    ) -> dict[str, Any] | None:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return None
+
+        supervisor_url = os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL).rstrip("/")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        try:
+            async with session.get(
+                f"{supervisor_url}/addons/{addon_slug}/info",
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return None
+                payload = await response.json()
+        except Exception as err:
+            _LOGGER.debug("Supervisor add-on info failed: %s", err)
+            return None
+
+        return payload.get("data") or None
 
     @staticmethod
     @callback

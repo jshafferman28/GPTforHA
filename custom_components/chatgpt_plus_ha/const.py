@@ -7,9 +7,8 @@ CONF_SIDECAR_URL = "sidecar_url"
 
 # Default values
 DEFAULT_SIDECAR_PORT = 3000
-ADDON_SLUG = "chatgpt_plus_ha"
+ADDON_SLUG_BASE = "chatgpt_plus_ha"
 SUPERVISOR_URL = "http://supervisor"
-SUPERVISOR_ADDON_PROXY = f"{SUPERVISOR_URL}/addons/{ADDON_SLUG}/proxy"
 DEFAULT_SIDECAR_URL = "http://chatgpt_plus_ha:3000"
 
 # API endpoints
