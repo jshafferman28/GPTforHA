@@ -193,7 +193,11 @@ app.get('/vnc', (req, res) => {
     };
 
     const pageUrl = new URL(window.location.href);
-    const wsUrl = pageUrl.href.replace(/\\/vnc\\/?$/, '/vnc/ws');
+    pageUrl.protocol = pageUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    pageUrl.pathname = pageUrl.pathname.replace(/\\/vnc\\/?$/, '/vnc/ws');
+    pageUrl.search = '';
+    pageUrl.hash = '';
+    const wsUrl = pageUrl.toString();
 
     import('./novnc/core/rfb.js')
       .then((module) => {

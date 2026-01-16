@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.4
+- Fix VNC WebSocket protocol under ingress.
+
 ## 1.1.3
 - Fix ingress VNC module path and WebSocket endpoint.
 
