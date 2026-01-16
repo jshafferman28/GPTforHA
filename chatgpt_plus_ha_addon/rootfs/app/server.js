@@ -207,10 +207,12 @@ app.get('/vnc', (req, res) => {
 
     rfb.addEventListener('connect', () => showStatus('Connected'));
     rfb.addEventListener('disconnect', (event) => {
-      showStatus(`Disconnected: ${event.detail?.clean ? 'clean' : 'error'}`);
+      const clean = event.detail && event.detail.clean;
+      showStatus('Disconnected: ' + (clean ? 'clean' : 'error'));
     });
     rfb.addEventListener('securityfailure', (event) => {
-      showStatus(`Security failure: ${event.detail?.status || 'unknown'}`);
+      const status = event.detail && event.detail.status;
+      showStatus('Security failure: ' + (status || 'unknown'));
     });
   </script>
 </body>

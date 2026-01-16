@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.2
+- Fix Web UI template parsing error in the VNC viewer.
+
 ## 1.1.1
 - Serve noVNC locally to fix blank login viewer.
 - Add clear session endpoint and Web UI button.
