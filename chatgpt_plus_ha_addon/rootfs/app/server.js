@@ -4,6 +4,9 @@
  */
 
 import express from 'express';
+import http from 'http';
+import net from 'net';
+import { WebSocketServer } from 'ws';
 import { ChatGPTClient } from './chatgpt-client.js';
 
 const app = express();
@@ -13,6 +16,8 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const HEADLESS = process.env.HEADLESS !== 'false';
 const SESSION_DIR = process.env.SESSION_DIR || './session';
+const VNC_HOST = process.env.VNC_HOST || '127.0.0.1';
+const VNC_PORT = Number(process.env.VNC_PORT || 5900);
 
 // Initialize ChatGPT client
 const chatgptClient = new ChatGPTClient({
@@ -86,6 +91,7 @@ app.get('/', async (req, res) => {
   <div>
     <button id="loginBtn">Start login</button>
     <button id="loginCompleteBtn">Complete login</button>
+    <button id="openViewerBtn">Open login viewer</button>
   </div>
   <div class="status" id="statusBox">Ready.</div>
   <script>
@@ -123,6 +129,9 @@ app.get('/', async (req, res) => {
         showStatus(err.message || String(err));
       }
     });
+    document.getElementById('openViewerBtn').addEventListener('click', () => {
+      window.open(buildUrl('vnc'), '_blank', 'noopener');
+    });
     document.getElementById('loginCompleteBtn').addEventListener('click', async () => {
       showStatus('Calling /api/login/complete...');
       try {
@@ -139,6 +148,37 @@ app.get('/', async (req, res) => {
   } catch (error) {
     res.status(500).send(`Error fetching status: ${error.message}`);
   }
+});
+
+// VNC viewer page
+app.get('/vnc', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ChatGPT Plus HA Login Viewer</title>
+  <style>
+    body { font-family: sans-serif; padding: 16px; }
+    #screen { width: 100%; height: 80vh; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>Login Viewer</h1>
+  <div id="screen"></div>
+  <script type="module">
+    import { RFB } from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.4.0/lib/rfb.js';
+    const baseUrl = new URL(window.location.href);
+    baseUrl.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    baseUrl.pathname = baseUrl.pathname.replace(/\\/vnc\\/?$/, '/vnc');
+    const rfb = new RFB(document.getElementById('screen'), baseUrl.toString(), {
+      shared: true,
+    });
+    rfb.addEventListener('connect', () => console.log('VNC connected'));
+    rfb.addEventListener('disconnect', (event) => console.log('VNC disconnected', event));
+  </script>
+</body>
+</html>`);
 });
 
 // ============================================
@@ -261,7 +301,50 @@ app.post('/api/conversation/new', checkInitialized, async (req, res) => {
 // Server Startup
 // ============================================
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+wss.on('connection', (ws) => {
+  const vncSocket = net.createConnection(VNC_PORT, VNC_HOST);
+
+  ws.on('message', (data) => {
+    if (vncSocket.writable) {
+      vncSocket.write(data);
+    }
+  });
+
+  vncSocket.on('data', (chunk) => {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(chunk);
+    }
+  });
+
+  const closeAll = () => {
+    if (!vncSocket.destroyed) {
+      vncSocket.destroy();
+    }
+    if (ws.readyState === ws.OPEN || ws.readyState === ws.CONNECTING) {
+      ws.close();
+    }
+  };
+
+  ws.on('close', closeAll);
+  ws.on('error', closeAll);
+  vncSocket.on('close', closeAll);
+  vncSocket.on('error', closeAll);
+});
+
+server.on('upgrade', (req, socket, head) => {
+  if (!req.url || !req.url.endsWith('/vnc')) {
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`ChatGPT Sidecar running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
 });
