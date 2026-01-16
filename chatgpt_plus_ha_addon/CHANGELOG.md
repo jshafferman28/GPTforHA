@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.7
+- Run headed browser via Xvfb when headless is disabled.
+
 ## 1.0.6
 - Add AI Task entity so ChatGPT appears in AI suggestions.
 

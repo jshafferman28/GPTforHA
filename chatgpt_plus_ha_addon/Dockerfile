@@ -10,6 +10,7 @@ RUN \
     nodejs \
     npm \
     bash \
+    xvfb \
     && npm install -g pnpm
 
 # Install Playwright dependencies (Chromium)

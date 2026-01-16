@@ -17,4 +17,7 @@ bashio::log.info "Headless mode: $HEADLESS"
 
 # Start application
 cd /app
+if [ "$HEADLESS" = "false" ]; then
+    exec xvfb-run -a node server.js
+fi
 exec node server.js
