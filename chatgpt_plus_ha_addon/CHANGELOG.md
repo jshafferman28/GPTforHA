@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+- Serve noVNC locally to fix blank login viewer.
+- Add clear session endpoint and Web UI button.
+
 ## 1.1.0
 - Add VNC login viewer for headless=false authentication.
 

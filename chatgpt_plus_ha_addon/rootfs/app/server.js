@@ -6,6 +6,8 @@
 import express from 'express';
 import http from 'http';
 import net from 'net';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { WebSocketServer } from 'ws';
 import { ChatGPTClient } from './chatgpt-client.js';
 
@@ -18,6 +20,11 @@ const HEADLESS = process.env.HEADLESS !== 'false';
 const SESSION_DIR = process.env.SESSION_DIR || './session';
 const VNC_HOST = process.env.VNC_HOST || '127.0.0.1';
 const VNC_PORT = Number(process.env.VNC_PORT || 5900);
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const novncPath = path.resolve(__dirname, 'node_modules', '@novnc', 'novnc');
+
+app.use('/novnc', express.static(novncPath));
 
 // Initialize ChatGPT client
 const chatgptClient = new ChatGPTClient({
@@ -92,6 +99,7 @@ app.get('/', async (req, res) => {
     <button id="loginBtn">Start login</button>
     <button id="loginCompleteBtn">Complete login</button>
     <button id="openViewerBtn">Open login viewer</button>
+    <button id="clearSessionBtn">Clear session</button>
   </div>
   <div class="status" id="statusBox">Ready.</div>
   <script>
@@ -142,6 +150,16 @@ app.get('/', async (req, res) => {
         showStatus(err.message || String(err));
       }
     });
+    document.getElementById('clearSessionBtn').addEventListener('click', async () => {
+      showStatus('Clearing session...');
+      try {
+        const response = await fetch(buildUrl('api/session/clear'), { method: 'POST' });
+        const payload = await parseResponse(response);
+        showStatus(payload);
+      } catch (err) {
+        showStatus(err.message || String(err));
+      }
+    });
   </script>
 </body>
 </html>`);
@@ -161,21 +179,39 @@ app.get('/vnc', (req, res) => {
   <style>
     body { font-family: sans-serif; padding: 16px; }
     #screen { width: 100%; height: 80vh; border: 1px solid #ccc; }
+    #status { margin-top: 12px; white-space: pre-wrap; }
   </style>
 </head>
 <body>
   <h1>Login Viewer</h1>
   <div id="screen"></div>
+  <div id="status">Connecting...</div>
   <script type="module">
-    import { RFB } from 'https://cdn.jsdelivr.net/npm/@novnc/novnc@1.4.0/lib/rfb.js';
+    import RFB from '/novnc/core/rfb.js';
+
+    const statusEl = document.getElementById('status');
     const baseUrl = new URL(window.location.href);
     baseUrl.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
     baseUrl.pathname = baseUrl.pathname.replace(/\\/vnc\\/?$/, '/vnc');
+    baseUrl.search = '';
+    baseUrl.hash = '';
+
     const rfb = new RFB(document.getElementById('screen'), baseUrl.toString(), {
       shared: true,
+      scaleViewport: true,
     });
-    rfb.addEventListener('connect', () => console.log('VNC connected'));
-    rfb.addEventListener('disconnect', (event) => console.log('VNC disconnected', event));
+
+    const showStatus = (text) => {
+      statusEl.textContent = text;
+    };
+
+    rfb.addEventListener('connect', () => showStatus('Connected'));
+    rfb.addEventListener('disconnect', (event) => {
+      showStatus(`Disconnected: ${event.detail?.clean ? 'clean' : 'error'}`);
+    });
+    rfb.addEventListener('securityfailure', (event) => {
+      showStatus(`Security failure: ${event.detail?.status || 'unknown'}`);
+    });
   </script>
 </body>
 </html>`);
@@ -334,8 +370,26 @@ wss.on('connection', (ws) => {
   vncSocket.on('error', closeAll);
 });
 
+app.post('/api/session/clear', checkInitialized, async (req, res) => {
+  try {
+    await chatgptClient.clearSession();
+    res.json({ success: true, message: 'Session cleared' });
+  } catch (error) {
+    console.error('Error clearing session:', error);
+    res.status(500).json({
+      error: 'Failed to clear session',
+      message: error.message,
+    });
+  }
+});
+
 server.on('upgrade', (req, socket, head) => {
-  if (!req.url || !req.url.endsWith('/vnc')) {
+  if (!req.url) {
+    socket.destroy();
+    return;
+  }
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (!url.pathname.endsWith('/vnc')) {
     socket.destroy();
     return;
   }

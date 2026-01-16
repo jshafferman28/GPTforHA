@@ -378,6 +378,30 @@ export class ChatGPTClient {
     }
 
     /**
+     * Clear persisted session data and cookies
+     */
+    async clearSession() {
+        this.isLoggedIn = false;
+        this.currentConversationId = null;
+
+        if (this.context) {
+            try {
+                await this.context.clearCookies();
+            } catch (error) {
+                console.warn('Failed to clear cookies:', error.message);
+            }
+        }
+
+        const sessionPath = path.join(this.sessionDir, 'browser-state.json');
+        try {
+            await fs.rm(sessionPath, { force: true });
+            console.log('Session file removed');
+        } catch (error) {
+            console.warn('Failed to remove session file:', error.message);
+        }
+    }
+
+    /**
      * Check if a file exists
      */
     async _fileExists(filePath) {

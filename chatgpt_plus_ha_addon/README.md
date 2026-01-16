@@ -9,6 +9,7 @@ This add-on runs a local sidecar service that automates the ChatGPT web UI using
 4. Open the Web UI and click **Start login**.
 5. Click **Open login viewer** to interact with the browser.
 6. Complete login, then click **Complete login**.
+7. If login fails, click **Clear session** and retry.
 6. Set `headless: true`, save, and restart.
 
 ## Configuration

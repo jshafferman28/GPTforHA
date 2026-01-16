@@ -30,6 +30,7 @@ Docs: https://www.home-assistant.io/docs/add-ons/
 4. Open the add-on Web UI and click **Start login**.
 5. Click **Open login viewer** and complete the login.
 6. Click **Complete login**.
+7. If login fails, click **Clear session** and retry.
 6. Go back to configuration and set `headless: true`.
 7. Save and restart.
 
