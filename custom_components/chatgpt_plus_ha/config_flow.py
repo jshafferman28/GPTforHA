@@ -15,6 +15,17 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_SIDECAR_URL,
+    CONF_CONTEXT_ENABLED,
+    CONF_INCLUDE_HISTORY,
+    CONF_INCLUDE_LOGBOOK,
+    CONF_HISTORY_HOURS,
+    CONF_ALLOWLIST_DOMAINS,
+    CONF_DENYLIST_DOMAINS,
+    CONF_ALLOWLIST_ENTITIES,
+    CONF_DENYLIST_ENTITIES,
+    CONF_MAX_CONTEXT_ENTITIES,
+    CONF_SUMMARY_CACHE_TTL,
+    CONF_INCOGNITO_MODE,
     DEFAULT_SIDECAR_URL,
     DOMAIN,
     API_HEALTH,
@@ -22,6 +33,17 @@ from .const import (
     ADDON_SLUG_BASE,
     DEFAULT_SIDECAR_PORT,
     SUPERVISOR_URL,
+    DEFAULT_CONTEXT_ENABLED,
+    DEFAULT_INCLUDE_HISTORY,
+    DEFAULT_INCLUDE_LOGBOOK,
+    DEFAULT_HISTORY_HOURS,
+    DEFAULT_ALLOWLIST_DOMAINS,
+    DEFAULT_DENYLIST_DOMAINS,
+    DEFAULT_ALLOWLIST_ENTITIES,
+    DEFAULT_DENYLIST_ENTITIES,
+    DEFAULT_MAX_CONTEXT_ENTITIES,
+    DEFAULT_SUMMARY_CACHE_TTL,
+    DEFAULT_INCOGNITO_MODE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -269,7 +291,8 @@ class ChatGPTPlusHAOptionsFlowHandler(config_entries.OptionsFlow):
     ) -> config_entries.FlowResult:
         """Manage the options."""
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            normalized = self._normalize_options(user_input)
+            return self.async_create_entry(title="", data=normalized)
 
         return self.async_show_form(
             step_id="init",
@@ -281,6 +304,106 @@ class ChatGPTPlusHAOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_SIDECAR_URL, DEFAULT_SIDECAR_URL
                         ),
                     ): str,
+                    vol.Optional(
+                        CONF_CONTEXT_ENABLED,
+                        default=self.config_entry.options.get(
+                            CONF_CONTEXT_ENABLED, DEFAULT_CONTEXT_ENABLED
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_INCLUDE_HISTORY,
+                        default=self.config_entry.options.get(
+                            CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_INCLUDE_LOGBOOK,
+                        default=self.config_entry.options.get(
+                            CONF_INCLUDE_LOGBOOK, DEFAULT_INCLUDE_LOGBOOK
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_HISTORY_HOURS,
+                        default=self.config_entry.options.get(
+                            CONF_HISTORY_HOURS, DEFAULT_HISTORY_HOURS
+                        ),
+                    ): int,
+                    vol.Optional(
+                        CONF_MAX_CONTEXT_ENTITIES,
+                        default=self.config_entry.options.get(
+                            CONF_MAX_CONTEXT_ENTITIES, DEFAULT_MAX_CONTEXT_ENTITIES
+                        ),
+                    ): int,
+                    vol.Optional(
+                        CONF_SUMMARY_CACHE_TTL,
+                        default=self.config_entry.options.get(
+                            CONF_SUMMARY_CACHE_TTL, DEFAULT_SUMMARY_CACHE_TTL
+                        ),
+                    ): int,
+                    vol.Optional(
+                        CONF_INCOGNITO_MODE,
+                        default=self.config_entry.options.get(
+                            CONF_INCOGNITO_MODE, DEFAULT_INCOGNITO_MODE
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_ALLOWLIST_DOMAINS,
+                        default=",".join(
+                            self.config_entry.options.get(
+                                CONF_ALLOWLIST_DOMAINS, DEFAULT_ALLOWLIST_DOMAINS
+                            )
+                        ),
+                    ): str,
+                    vol.Optional(
+                        CONF_DENYLIST_DOMAINS,
+                        default=",".join(
+                            self.config_entry.options.get(
+                                CONF_DENYLIST_DOMAINS, DEFAULT_DENYLIST_DOMAINS
+                            )
+                        ),
+                    ): str,
+                    vol.Optional(
+                        CONF_ALLOWLIST_ENTITIES,
+                        default=",".join(
+                            self.config_entry.options.get(
+                                CONF_ALLOWLIST_ENTITIES, DEFAULT_ALLOWLIST_ENTITIES
+                            )
+                        ),
+                    ): str,
+                    vol.Optional(
+                        CONF_DENYLIST_ENTITIES,
+                        default=",".join(
+                            self.config_entry.options.get(
+                                CONF_DENYLIST_ENTITIES, DEFAULT_DENYLIST_ENTITIES
+                            )
+                        ),
+                    ): str,
                 }
             ),
         )
+
+    @staticmethod
+    def _normalize_list(value: Any) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        if isinstance(value, (list, tuple, set)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return [str(value).strip()]
+
+    def _normalize_options(self, user_input: dict[str, Any]) -> dict[str, Any]:
+        data = dict(user_input)
+        data[CONF_ALLOWLIST_DOMAINS] = self._normalize_list(
+            data.get(CONF_ALLOWLIST_DOMAINS)
+        )
+        data[CONF_DENYLIST_DOMAINS] = self._normalize_list(
+            data.get(CONF_DENYLIST_DOMAINS)
+        )
+        data[CONF_ALLOWLIST_ENTITIES] = self._normalize_list(
+            data.get(CONF_ALLOWLIST_ENTITIES)
+        )
+        data[CONF_DENYLIST_ENTITIES] = self._normalize_list(
+            data.get(CONF_DENYLIST_ENTITIES)
+        )
+        return data
