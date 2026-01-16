@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 from homeassistant.core import HomeAssistant
@@ -13,6 +15,7 @@ from .const import (
     API_CHAT,
     API_NEW_CONVERSATION,
     API_STATUS,
+    SUPERVISOR_URL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,8 +41,10 @@ class ChatGPTPlusAgent:
     async def get_status(self) -> dict[str, Any]:
         """Get the current status from the sidecar."""
         try:
+            headers = self._build_headers()
             async with self.session.get(
                 f"{self.sidecar_url}{API_STATUS}",
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 200:
@@ -56,9 +61,11 @@ class ChatGPTPlusAgent:
             if self._conversation_id:
                 payload["conversationId"] = self._conversation_id
 
+            headers = self._build_headers()
             async with self.session.post(
                 f"{self.sidecar_url}{API_CHAT}",
                 json=payload,
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=180),  # 3 minute timeout for long responses
             ) as response:
                 if response.status == 200:
@@ -91,8 +98,10 @@ class ChatGPTPlusAgent:
     async def new_conversation(self) -> dict[str, Any]:
         """Start a new conversation."""
         try:
+            headers = self._build_headers()
             async with self.session.post(
                 f"{self.sidecar_url}{API_NEW_CONVERSATION}",
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as response:
                 if response.status == 200:
@@ -116,3 +125,19 @@ class ChatGPTPlusAgent:
     def conversation_id(self) -> str | None:
         """Get the current conversation ID."""
         return self._conversation_id
+
+    def _build_headers(self) -> dict[str, str]:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return {}
+
+        try:
+            target = urlparse(self.sidecar_url)
+            supervisor = urlparse(os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL))
+        except ValueError:
+            return {}
+
+        if target.hostname and target.hostname == supervisor.hostname:
+            return {"Authorization": f"Bearer {token}"}
+
+        return {}

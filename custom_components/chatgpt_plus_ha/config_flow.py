@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 import voluptuous as vol
@@ -21,6 +22,7 @@ from .const import (
     ADDON_SLUG,
     DEFAULT_SIDECAR_PORT,
     SUPERVISOR_URL,
+    SUPERVISOR_ADDON_PROXY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,6 +58,17 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         sidecar_url = fallback_url
                         errors = {}
 
+            if errors:
+                proxy_url = self._get_supervisor_proxy_url()
+                if proxy_url and proxy_url != sidecar_url:
+                    _LOGGER.debug(
+                        "Falling back to supervisor proxy URL: %s", proxy_url
+                    )
+                    proxy_errors = await self._validate_sidecar(session, proxy_url)
+                    if not proxy_errors:
+                        sidecar_url = proxy_url
+                        errors = {}
+
             if not errors:
                 # Create entry
                 await self.async_set_unique_id(f"chatgpt_plus_ha_{sidecar_url}")
@@ -83,9 +96,11 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, session: aiohttp.ClientSession, sidecar_url: str
     ) -> dict[str, str]:
         errors: dict[str, str] = {}
+        headers = self._build_headers_for_url(sidecar_url)
         try:
             async with session.get(
                 f"{sidecar_url}{API_HEALTH}",
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status != 200:
@@ -97,6 +112,7 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             async with session.get(
                 f"{sidecar_url}{API_STATUS}",
+                headers=headers,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status != 200:
@@ -115,6 +131,22 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return {"base": "unknown"}
 
         return errors
+
+    def _build_headers_for_url(self, sidecar_url: str) -> dict[str, str]:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return {}
+
+        try:
+            target = urlparse(sidecar_url)
+            supervisor = urlparse(os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL))
+        except ValueError:
+            return {}
+
+        if target.hostname and target.hostname == supervisor.hostname:
+            return {"Authorization": f"Bearer {token}"}
+
+        return {}
 
     async def _get_supervisor_sidecar_url(
         self, session: aiohttp.ClientSession
@@ -150,6 +182,14 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return f"http://{ip_address}:{DEFAULT_SIDECAR_PORT}"
 
         return None
+
+    def _get_supervisor_proxy_url(self) -> str | None:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return None
+
+        supervisor_url = os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL).rstrip("/")
+        return f"{supervisor_url}/addons/{ADDON_SLUG}/proxy"
 
     @staticmethod
     @callback
