@@ -7,6 +7,9 @@ CONF_SIDECAR_URL = "sidecar_url"
 
 # Default values
 DEFAULT_SIDECAR_URL = "http://chatgpt_plus_ha:3000"
+DEFAULT_SIDECAR_PORT = 3000
+ADDON_SLUG = "chatgpt_plus_ha"
+SUPERVISOR_URL = "http://supervisor"
 
 # API endpoints
 API_HEALTH = "/health"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 import aiohttp
@@ -17,6 +18,9 @@ from .const import (
     DOMAIN,
     API_HEALTH,
     API_STATUS,
+    ADDON_SLUG,
+    DEFAULT_SIDECAR_PORT,
+    SUPERVISOR_URL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,40 +40,21 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             sidecar_url = user_input[CONF_SIDECAR_URL].rstrip("/")
 
-            # Validate connection to sidecar
-            try:
-                session = async_get_clientsession(self.hass)
-                
-                # Check health endpoint
-                async with session.get(
-                    f"{sidecar_url}{API_HEALTH}", timeout=aiohttp.ClientTimeout(total=10)
-                ) as response:
-                    if response.status != 200:
-                        errors["base"] = "cannot_connect"
-                    else:
-                        health_data = await response.json()
-                        if health_data.get("status") != "healthy":
-                            errors["base"] = "sidecar_not_ready"
+            session = async_get_clientsession(self.hass)
+            errors = await self._validate_sidecar(session, sidecar_url)
 
-                # Check auth status
-                if not errors:
-                    async with session.get(
-                        f"{sidecar_url}{API_STATUS}", timeout=aiohttp.ClientTimeout(total=10)
-                    ) as response:
-                        if response.status != 200:
-                            errors["base"] = "cannot_connect"
-                        else:
-                            status_data = await response.json()
-                            if not status_data.get("isLoggedIn"):
-                                errors["base"] = "not_logged_in"
-
-            except aiohttp.ClientConnectorError:
-                errors["base"] = "cannot_connect"
-            except aiohttp.ClientTimeout:
-                errors["base"] = "timeout"
-            except Exception:
-                _LOGGER.exception("Unexpected error validating sidecar")
-                errors["base"] = "unknown"
+            if errors:
+                fallback_url = await self._get_supervisor_sidecar_url(session)
+                if fallback_url and fallback_url != sidecar_url:
+                    _LOGGER.debug(
+                        "Falling back to supervisor sidecar URL: %s", fallback_url
+                    )
+                    fallback_errors = await self._validate_sidecar(
+                        session, fallback_url
+                    )
+                    if not fallback_errors:
+                        sidecar_url = fallback_url
+                        errors = {}
 
             if not errors:
                 # Create entry
@@ -93,6 +78,78 @@ class ChatGPTPlusHAConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def _validate_sidecar(
+        self, session: aiohttp.ClientSession, sidecar_url: str
+    ) -> dict[str, str]:
+        errors: dict[str, str] = {}
+        try:
+            async with session.get(
+                f"{sidecar_url}{API_HEALTH}",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return {"base": "cannot_connect"}
+
+                health_data = await response.json()
+                if health_data.get("status") != "healthy":
+                    return {"base": "sidecar_not_ready"}
+
+            async with session.get(
+                f"{sidecar_url}{API_STATUS}",
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return {"base": "cannot_connect"}
+
+                status_data = await response.json()
+                if not status_data.get("isLoggedIn"):
+                    return {"base": "not_logged_in"}
+
+        except aiohttp.ClientConnectorError:
+            return {"base": "cannot_connect"}
+        except aiohttp.ClientTimeout:
+            return {"base": "timeout"}
+        except Exception:
+            _LOGGER.exception("Unexpected error validating sidecar")
+            return {"base": "unknown"}
+
+        return errors
+
+    async def _get_supervisor_sidecar_url(
+        self, session: aiohttp.ClientSession
+    ) -> str | None:
+        token = os.environ.get("SUPERVISOR_TOKEN")
+        if not token:
+            return None
+
+        supervisor_url = os.environ.get("SUPERVISOR_URL", SUPERVISOR_URL).rstrip("/")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        try:
+            async with session.get(
+                f"{supervisor_url}/addons/{ADDON_SLUG}/info",
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status != 200:
+                    return None
+
+                payload = await response.json()
+        except Exception as err:
+            _LOGGER.debug("Supervisor add-on lookup failed: %s", err)
+            return None
+
+        info = payload.get("data") or {}
+        hostname = info.get("hostname")
+        ip_address = info.get("ip_address")
+
+        if hostname:
+            return f"http://{hostname}:{DEFAULT_SIDECAR_PORT}"
+        if ip_address:
+            return f"http://{ip_address}:{DEFAULT_SIDECAR_PORT}"
+
+        return None
 
     @staticmethod
     @callback
