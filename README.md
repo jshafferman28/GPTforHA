@@ -27,8 +27,8 @@ Docs: https://www.home-assistant.io/docs/add-ons/
 1. Open the add-on configuration.
 2. Set `headless: false`.
 3. Save and restart the add-on.
-4. Open the add-on Web UI and visit `/api/login`.
-5. Complete login, then call `/api/login/complete`.
+4. Open the add-on Web UI and click **Start login** (or visit `/api/login`).
+5. Complete login, then click **Complete login** (or call `/api/login/complete`).
 6. Go back to configuration and set `headless: true`.
 7. Save and restart.
 

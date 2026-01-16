@@ -6,8 +6,8 @@ This add-on runs a local sidecar service that automates the ChatGPT web UI using
 1. Install the add-on from the Add-on Store and start it.
 2. Open the add-on Web UI to view status.
 3. For first-time login, set `headless: false`, save, and restart the add-on.
-4. Open the Web UI and visit `/api/login` to launch the login page.
-5. Complete login, then call `/api/login/complete`.
+4. Open the Web UI and click **Start login** (or visit `/api/login`) to launch the login page.
+5. Complete login, then click **Complete login** (or call `/api/login/complete`).
 6. Set `headless: true`, save, and restart.
 
 ## Configuration

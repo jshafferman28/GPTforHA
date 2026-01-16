@@ -70,6 +70,8 @@ app.get('/', async (req, res) => {
   <style>
     body { font-family: sans-serif; padding: 24px; line-height: 1.5; }
     code { background: #f2f2f2; padding: 2px 4px; border-radius: 4px; }
+    button { padding: 8px 12px; margin-right: 8px; }
+    .status { margin-top: 16px; white-space: pre-wrap; background: #f7f7f7; padding: 12px; border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -81,6 +83,35 @@ app.get('/', async (req, res) => {
   <p>Login: <a href="/api/login">/api/login</a></p>
   <p>After login completes, call <code>/api/login/complete</code>.</p>
   <p>If you are not logged in, set <code>headless: false</code> in the add-on config, restart, and open the login endpoint.</p>
+  <div>
+    <button id="loginBtn">Start login</button>
+    <button id="loginCompleteBtn">Complete login</button>
+  </div>
+  <div class="status" id="statusBox">Ready.</div>
+  <script>
+    const statusBox = document.getElementById('statusBox');
+    const showStatus = (data) => {
+      statusBox.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    };
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      showStatus('Calling /api/login...');
+      try {
+        const response = await fetch('/api/login');
+        showStatus(await response.json());
+      } catch (err) {
+        showStatus(err.message || String(err));
+      }
+    });
+    document.getElementById('loginCompleteBtn').addEventListener('click', async () => {
+      showStatus('Calling /api/login/complete...');
+      try {
+        const response = await fetch('/api/login/complete', { method: 'POST' });
+        showStatus(await response.json());
+      } catch (err) {
+        showStatus(err.message || String(err));
+      }
+    });
+  </script>
 </body>
 </html>`);
   } catch (error) {

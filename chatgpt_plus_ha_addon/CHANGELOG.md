@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.8
+- Replace xvfb-run with direct Xvfb startup.
+- Add Web UI buttons for login and login completion.
+
 ## 1.0.7
 - Run headed browser via Xvfb when headless is disabled.
 
