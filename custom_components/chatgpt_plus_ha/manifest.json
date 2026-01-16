@@ -6,9 +6,11 @@
     ],
     "config_flow": true,
     "dependencies": [
+        "ai_task",
         "http"
     ],
     "after_dependencies": [
+        "ai_task",
         "frontend"
     ],
     "documentation": "https://github.com/jshafferman28/GPTforHA",
@@ -18,5 +20,5 @@
     "requirements": [
         "aiohttp>=3.8.0"
     ],
-    "version": "1.0.5"
+    "version": "1.0.6"
 }

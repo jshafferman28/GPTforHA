@@ -44,6 +44,10 @@ Your session is saved in `/config/chatgpt_sessions`.
 ## Usage
 Click "ChatGPT" in your sidebar to start chatting.
 
+## AI Suggestions
+This integration registers an AI Task entity so it can be selected under Settings > Assist > AI suggestions.
+Choose "ChatGPT Plus AI Tasks" for data generation tasks.
+
 ### Services
 - `chatgpt_plus_ha.send_message`
 - `chatgpt_plus_ha.new_conversation`

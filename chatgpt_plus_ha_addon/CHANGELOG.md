@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.0.6
+- Add AI Task entity so ChatGPT appears in AI suggestions.
+
 ## 1.0.5
 - Improve login detection using ChatGPT session API.
 - Show headless status and login instructions in the Web UI.

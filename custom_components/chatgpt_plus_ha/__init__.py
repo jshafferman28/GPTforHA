@@ -19,6 +19,8 @@ from homeassistant.helpers.typing import ConfigType
 from .agent import ChatGPTPlusAgent
 from .const import CONF_SIDECAR_URL, DOMAIN
 
+PLATFORMS: list[str] = ["ai_task"]
+
 _LOGGER = logging.getLogger(__name__)
 
 # Config schema - this integration only supports config entries
@@ -71,6 +73,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await _async_register_services(hass)
         hass.data[DOMAIN]["_services_registered"] = True
 
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
     _LOGGER.info("ChatGPT Plus HA integration set up successfully")
     return True
 
@@ -79,6 +83,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if entry.entry_id in hass.data[DOMAIN]:
         hass.data[DOMAIN].pop(entry.entry_id)
+
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not unload_ok:
+        return False
 
     has_entries = any(
         isinstance(entry_data, dict) and "agent" in entry_data
