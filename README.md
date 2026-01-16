@@ -17,7 +17,7 @@ A Home Assistant Add-on and Integration that lets you chat with ChatGPT using yo
 ### Step 1: Install the Add-on (Backend)
 1. Go to Settings > Add-ons > Add-on Store.
 2. Open the menu (top right) and choose Repositories.
-3. Add this URL: `https://github.com/jshafferman28/chatgpt-plus-ha`
+3. Add this URL: `https://github.com/jshafferman28/GPTforHA`
 4. Find "ChatGPT Plus HA" and install it.
 5. Start the add-on (enable Start on boot and Watchdog).
 
@@ -33,7 +33,7 @@ Your session is saved in `/config/chatgpt_sessions`.
 
 ### Step 3: Install the Integration (Frontend)
 1. Open HACS.
-2. Add Custom Repository: `https://github.com/jshafferman28/chatgpt-plus-ha` (Category: Integration).
+2. Add Custom Repository: `https://github.com/jshafferman28/GPTforHA` (Category: Integration).
 3. Install "ChatGPT Plus HA".
 4. Restart Home Assistant.
 5. Go to Settings > Devices & Services > Add Integration.

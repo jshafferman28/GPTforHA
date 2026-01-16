@@ -1,8 +1,8 @@
 name: "ChatGPT Plus HA"
-version: "1.0.3"
+version: "1.0.4"
 slug: "chatgpt_plus_ha"
 description: "Browser automation bridge for ChatGPT Plus"
-url: "https://github.com/jshafferman28/chatgpt-plus-ha"
+url: "https://github.com/jshafferman28/GPTforHA"
 startup: application
 arch:
   - aarch64

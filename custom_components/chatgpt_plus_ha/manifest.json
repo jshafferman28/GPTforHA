@@ -11,12 +11,12 @@
     "after_dependencies": [
         "frontend"
     ],
-    "documentation": "https://github.com/jshafferman28/chatgpt-plus-ha",
+    "documentation": "https://github.com/jshafferman28/GPTforHA",
     "integration_type": "service",
     "iot_class": "local_polling",
-    "issue_tracker": "https://github.com/jshafferman28/chatgpt-plus-ha/issues",
+    "issue_tracker": "https://github.com/jshafferman28/GPTforHA/issues",
     "requirements": [
         "aiohttp>=3.8.0"
     ],
-    "version": "1.0.3"
+    "version": "1.0.4"
 }

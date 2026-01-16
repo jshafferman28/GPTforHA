@@ -50,6 +50,41 @@ const checkInitialized = (req, res, next) => {
   next();
 };
 
+// Root endpoint for ingress UI
+app.get('/', async (req, res) => {
+  if (!isInitialized) {
+    return res.status(503).send('ChatGPT Plus HA sidecar is starting...');
+  }
+
+  try {
+    const status = await chatgptClient.getStatus();
+    const loginState = status.isLoggedIn ? 'Logged in' : 'Not logged in';
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ChatGPT Plus HA</title>
+  <style>
+    body { font-family: sans-serif; padding: 24px; line-height: 1.5; }
+    code { background: #f2f2f2; padding: 2px 4px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>ChatGPT Plus HA Sidecar</h1>
+  <p>Status: <strong>${loginState}</strong></p>
+  <p>Health: <a href="/health">/health</a></p>
+  <p>Status API: <a href="/api/status">/api/status</a></p>
+  <p>Login: <a href="/api/login">/api/login</a></p>
+  <p>After login completes, call <code>/api/login/complete</code>.</p>
+</body>
+</html>`);
+  } catch (error) {
+    res.status(500).send(`Error fetching status: ${error.message}`);
+  }
+});
+
 // ============================================
 // Health & Status Endpoints
 // ============================================

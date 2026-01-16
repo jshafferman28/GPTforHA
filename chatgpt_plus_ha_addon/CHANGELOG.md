@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.4
+- Use system Chromium if Playwright browsers are missing.
+- Add a root status page for ingress Web UI.
+
 ## 1.0.3
 - Fix add-on start script location and permissions.
 - Add add-on README and changelog for the store.

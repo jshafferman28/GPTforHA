@@ -37,6 +37,7 @@ export class ChatGPTClient {
     constructor(options = {}) {
         this.headless = options.headless ?? true;
         this.sessionDir = options.sessionDir || './session';
+        this.executablePath = options.executablePath || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || null;
         this.browser = null;
         this.context = null;
         this.page = null;
@@ -54,15 +55,24 @@ export class ChatGPTClient {
         const sessionPath = path.join(this.sessionDir, 'browser-state.json');
         const hasSession = await this._fileExists(sessionPath);
 
-        // Launch browser
-        this.browser = await chromium.launch({
+        const executablePath = await this._resolveExecutablePath();
+
+        const launchOptions = {
             headless: this.headless,
             args: [
                 '--disable-blink-features=AutomationControlled',
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
             ],
-        });
+        };
+
+        if (executablePath) {
+            launchOptions.executablePath = executablePath;
+            console.log(`Using system Chromium at ${executablePath}`);
+        }
+
+        // Launch browser
+        this.browser = await chromium.launch(launchOptions);
 
         // Create context with session state if available
         const contextOptions = {
@@ -350,5 +360,27 @@ export class ChatGPTClient {
         } catch {
             return false;
         }
+    }
+
+    async _resolveExecutablePath() {
+        const candidates = [
+            this.executablePath,
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+        ];
+
+        for (const candidate of candidates) {
+            if (!candidate) {
+                continue;
+            }
+            try {
+                await fs.access(candidate);
+                return candidate;
+            } catch {
+                // Try next candidate
+            }
+        }
+
+        return null;
     }
 }
