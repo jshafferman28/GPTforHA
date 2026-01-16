@@ -59,6 +59,7 @@ app.get('/', async (req, res) => {
   try {
     const status = await chatgptClient.getStatus();
     const loginState = status.isLoggedIn ? 'Logged in' : 'Not logged in';
+    const headlessState = HEADLESS ? 'true' : 'false';
 
     res.setHeader('Content-Type', 'text/html');
     res.send(`<!doctype html>
@@ -74,10 +75,12 @@ app.get('/', async (req, res) => {
 <body>
   <h1>ChatGPT Plus HA Sidecar</h1>
   <p>Status: <strong>${loginState}</strong></p>
+  <p>Headless: <strong>${headlessState}</strong></p>
   <p>Health: <a href="/health">/health</a></p>
   <p>Status API: <a href="/api/status">/api/status</a></p>
   <p>Login: <a href="/api/login">/api/login</a></p>
   <p>After login completes, call <code>/api/login/complete</code>.</p>
+  <p>If you are not logged in, set <code>headless: false</code> in the add-on config, restart, and open the login endpoint.</p>
 </body>
 </html>`);
   } catch (error) {

@@ -50,3 +50,6 @@ Click "ChatGPT" in your sidebar to start chatting.
 
 ## Troubleshooting
 Check the add-on logs for browser errors. If login fails, repeat the login steps with headless mode disabled.
+
+## Updates
+After pulling new versions of this repository, refresh the Add-on Store and click **Update** on the add-on. You should not need to uninstall as long as the version changes.

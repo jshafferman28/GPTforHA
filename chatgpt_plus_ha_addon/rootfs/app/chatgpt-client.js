@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const CHATGPT_URL = 'https://chatgpt.com';
 const LOGIN_URL = 'https://chatgpt.com/auth/login';
+const SESSION_API_URL = 'https://chatgpt.com/api/auth/session';
 
 // Selectors for ChatGPT interface (may need updates as UI changes)
 const SELECTORS = {
@@ -113,6 +114,12 @@ export class ChatGPTClient {
             // Wait a bit for page to settle
             await this.page.waitForTimeout(2000);
 
+            const apiLogin = await this._checkLoginStatusViaApi();
+            if (apiLogin !== null) {
+                this.isLoggedIn = apiLogin;
+                return;
+            }
+
             // Look for user menu (indicates logged in)
             const userMenu = await this.page.$(SELECTORS.userMenu);
             if (userMenu) {
@@ -139,6 +146,24 @@ export class ChatGPTClient {
         } catch (error) {
             console.error('Error checking login status:', error);
             this.isLoggedIn = false;
+        }
+    }
+
+    async _checkLoginStatusViaApi() {
+        try {
+            const response = await this.context.request.get(SESSION_API_URL, {
+                timeout: 10000,
+            });
+
+            if (!response.ok()) {
+                return false;
+            }
+
+            const data = await response.json();
+            return Boolean(data?.user?.email || data?.user?.id);
+        } catch (error) {
+            console.warn('Failed to check session API:', error.message);
+            return null;
         }
     }
 
@@ -202,6 +227,7 @@ export class ChatGPTClient {
      * Send a message to ChatGPT and get the response
      */
     async sendMessage(message, conversationId = null) {
+        await this._checkLoginStatus();
         if (!this.isLoggedIn) {
             throw new Error('Not logged in. Please authenticate first.');
         }
@@ -311,6 +337,7 @@ export class ChatGPTClient {
      * Start a new conversation
      */
     async newConversation() {
+        await this._checkLoginStatus();
         if (!this.isLoggedIn) {
             throw new Error('Not logged in. Please authenticate first.');
         }

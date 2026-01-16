@@ -13,3 +13,7 @@ headless: true
 
 ## Notes
 - Sessions are stored in `/config/chatgpt_sessions`.
+
+## Updates
+- Open the Add-on Store, refresh, and click **Update** when a new version is available.
+- No uninstall/reinstall is needed as long as the version is bumped.

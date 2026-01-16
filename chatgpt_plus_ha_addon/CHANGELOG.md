@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.5
+- Improve login detection using ChatGPT session API.
+- Show headless status and login instructions in the Web UI.
+
 ## 1.0.4
 - Use system Chromium if Playwright browsers are missing.
 - Add a root status page for ingress Web UI.
