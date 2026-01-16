@@ -78,9 +78,9 @@ app.get('/', async (req, res) => {
   <h1>ChatGPT Plus HA Sidecar</h1>
   <p>Status: <strong>${loginState}</strong></p>
   <p>Headless: <strong>${headlessState}</strong></p>
-  <p>Health: <a href="/health">/health</a></p>
-  <p>Status API: <a href="/api/status">/api/status</a></p>
-  <p>Login: <a href="/api/login">/api/login</a></p>
+  <p>Health: <a id="healthLink" href="#">/health</a></p>
+  <p>Status API: <a id="statusLink" href="#">/api/status</a></p>
+  <p>Login: <a id="loginLink" href="#">/api/login</a></p>
   <p>After login completes, call <code>/api/login/complete</code>.</p>
   <p>If you are not logged in, set <code>headless: false</code> in the add-on config, restart, and open the login endpoint.</p>
   <div>
@@ -90,14 +90,35 @@ app.get('/', async (req, res) => {
   <div class="status" id="statusBox">Ready.</div>
   <script>
     const statusBox = document.getElementById('statusBox');
+    const baseHref = window.location.href.endsWith('/') ? window.location.href : window.location.href + '/';
+    const buildUrl = (path) => new URL(path, baseHref).toString();
+
+    const healthUrl = buildUrl('health');
+    const statusUrl = buildUrl('api/status');
+    const loginUrl = buildUrl('api/login');
+    const loginCompleteUrl = buildUrl('api/login/complete');
+
+    document.getElementById('healthLink').href = healthUrl;
+    document.getElementById('statusLink').href = statusUrl;
+    document.getElementById('loginLink').href = loginUrl;
+
     const showStatus = (data) => {
       statusBox.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    };
+    const parseResponse = async (response) => {
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch (err) {
+        return text || response.statusText;
+      }
     };
     document.getElementById('loginBtn').addEventListener('click', async () => {
       showStatus('Calling /api/login...');
       try {
-        const response = await fetch('/api/login');
-        showStatus(await response.json());
+        const response = await fetch(loginUrl);
+        const payload = await parseResponse(response);
+        showStatus(payload);
       } catch (err) {
         showStatus(err.message || String(err));
       }
@@ -105,8 +126,9 @@ app.get('/', async (req, res) => {
     document.getElementById('loginCompleteBtn').addEventListener('click', async () => {
       showStatus('Calling /api/login/complete...');
       try {
-        const response = await fetch('/api/login/complete', { method: 'POST' });
-        showStatus(await response.json());
+        const response = await fetch(loginCompleteUrl, { method: 'POST' });
+        const payload = await parseResponse(response);
+        showStatus(payload);
       } catch (err) {
         showStatus(err.message || String(err));
       }

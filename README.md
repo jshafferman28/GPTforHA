@@ -64,5 +64,8 @@ Docs: https://www.home-assistant.io/docs/automation/service-calls/
 ## Troubleshooting
 Check the add-on logs for browser errors. If login fails, repeat the login steps with headless mode disabled.
 
+## Known limitations
+- The login flow requires a browser session managed by Playwright. If you have trouble completing login, delete `/config/chatgpt_sessions/browser-state.json` and retry.
+
 ## Updates
 After pulling new versions of this repository, refresh the Add-on Store and click **Update** on the add-on. You should not need to uninstall as long as the version changes.

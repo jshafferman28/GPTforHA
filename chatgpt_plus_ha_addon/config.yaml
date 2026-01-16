@@ -1,5 +1,5 @@
 name: "ChatGPT Plus HA"
-version: "1.0.8"
+version: "1.0.9"
 slug: "chatgpt_plus_ha"
 description: "Browser automation bridge for ChatGPT Plus"
 url: "https://github.com/jshafferman28/GPTforHA"
@@ -11,6 +11,8 @@ init: false
 ingress: true
 ingress_port: 3000
 panel_icon: "mdi:robot"
+panel_title: "ChatGPT Plus"
+panel_admin: false
 map:
   - config:rw
 options:

@@ -18,6 +18,7 @@ headless: true
 ## Notes
 - Sessions are stored in `/config/chatgpt_sessions`.
 - Headed login uses Xvfb inside the add-on, so no external display is needed.
+- The add-on also adds a sidebar panel entry named "ChatGPT Plus".
 
 ## Updates
 - Open the Add-on Store, refresh, and click **Update** when a new version is available.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.9
+- Fix ingress Web UI links and JSON parsing.
+- Add sidebar panel entry in Home Assistant.
+
 ## 1.0.8
 - Replace xvfb-run with direct Xvfb startup.
 - Add Web UI buttons for login and login completion.
