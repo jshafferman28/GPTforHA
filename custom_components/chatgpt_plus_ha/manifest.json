@@ -1,0 +1,22 @@
+{
+    "domain": "chatgpt_plus_ha",
+    "name": "ChatGPT Plus HA",
+    "codeowners": [
+        "@jshafferman28"
+    ],
+    "config_flow": true,
+    "dependencies": [
+        "http"
+    ],
+    "after_dependencies": [
+        "frontend"
+    ],
+    "documentation": "https://github.com/jshafferman28/chatgpt-plus-ha",
+    "integration_type": "service",
+    "iot_class": "local_polling",
+    "issue_tracker": "https://github.com/jshafferman28/chatgpt-plus-ha/issues",
+    "requirements": [
+        "aiohttp>=3.8.0"
+    ],
+    "version": "1.0.0"
+}

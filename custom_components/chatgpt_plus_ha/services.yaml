@@ -1,0 +1,23 @@
+send_message:
+  name: Send Message
+  description: Send a message to ChatGPT and get a response
+  fields:
+    message:
+      name: Message
+      description: The message to send to ChatGPT
+      required: true
+      example: "What's the weather like today?"
+      selector:
+        text:
+          multiline: true
+    request_id:
+      name: Request ID
+      description: Optional request ID used to match responses to requests
+      required: false
+      example: "1699999999999-acde"
+      selector:
+        text:
+
+new_conversation:
+  name: New Conversation
+  description: Start a new ChatGPT conversation (clears context)

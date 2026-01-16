@@ -1,0 +1,33 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "ChatGPT Plus HA Setup",
+                "description": "Enter the URL of your ChatGPT sidecar service. Make sure the sidecar is running and you have completed the login process.",
+                "data": {
+                    "sidecar_url": "Sidecar URL"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Cannot connect to sidecar. Make sure it's running and the URL is correct.",
+            "timeout": "Connection timed out. Check if the sidecar is responsive.",
+            "sidecar_not_ready": "Sidecar is not ready. Wait for it to initialize.",
+            "not_logged_in": "Not logged in to ChatGPT. Please complete the login process in the sidecar first.",
+            "unknown": "An unexpected error occurred."
+        },
+        "abort": {
+            "already_configured": "This sidecar is already configured."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "ChatGPT Plus HA Options",
+                "data": {
+                    "sidecar_url": "Sidecar URL"
+                }
+            }
+        }
+    }
+}

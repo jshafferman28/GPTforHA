@@ -1,0 +1,19 @@
+name: "ChatGPT Plus HA"
+version: "1.0.0"
+slug: "chatgpt_plus_ha"
+description: "Browser automation bridge for ChatGPT Plus"
+url: "https://github.com/jshafferman28/chatgpt-plus-ha"
+startup: application
+arch:
+  - aarch64
+  - amd64
+init: false
+ingress: true
+ingress_port: 3000
+panel_icon: "mdi:robot"
+map:
+  - config:rw
+options:
+  headless: true
+schema:
+  headless: bool
