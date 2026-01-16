@@ -10,6 +10,14 @@ class ChatGPTPlusPanel extends HTMLElement {
         this._hass = null;
         this._messages = [];
         this._isLoading = false;
+        this._automation = {
+            yaml: '',
+            validation: null,
+            explanation: '',
+            assumptions: '',
+            questions: '',
+        };
+        this._notification = null;
     }
 
     set hass(hass) {
@@ -154,6 +162,77 @@ class ChatGPTPlusPanel extends HTMLElement {
           padding: 16px 20px;
           background: var(--input-bg);
           border-top: 1px solid var(--border-color);
+        }
+
+        .tools {
+          padding: 12px 20px;
+          background: var(--secondary-background-color, #14142a);
+          border-top: 1px solid var(--border-color);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .tool-section {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 12px;
+          padding: 12px 16px;
+        }
+
+        .tool-section summary {
+          cursor: pointer;
+          font-weight: 600;
+          color: var(--text-color);
+        }
+
+        .tool-grid {
+          margin-top: 12px;
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 12px;
+        }
+
+        .tool-grid label {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 13px;
+        }
+
+        .tool-grid input,
+        .tool-grid select,
+        .tool-grid textarea {
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+          background: var(--chat-bg);
+          color: var(--text-color);
+          font-size: 13px;
+        }
+
+        .tool-actions {
+          margin-top: 12px;
+          display: flex;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+
+        .tool-actions button {
+          padding: 8px 12px;
+          border-radius: 8px;
+          border: none;
+          background: var(--accent-color);
+          color: white;
+          cursor: pointer;
+        }
+
+        .tool-output {
+          margin-top: 12px;
+          background: rgba(0, 0, 0, 0.25);
+          border-radius: 8px;
+          padding: 10px;
+          font-size: 13px;
+          white-space: pre-wrap;
         }
 
         .input-container {
@@ -309,6 +388,107 @@ class ChatGPTPlusPanel extends HTMLElement {
           </div>
         </div>
 
+        <div class="tools">
+          <details class="tool-section" open>
+            <summary>Context & Privacy</summary>
+            <div class="tool-grid">
+              <label>
+                Include home context
+                <input type="checkbox" id="includeContextToggle" checked>
+              </label>
+              <label>
+                Include history
+                <input type="checkbox" id="includeHistoryToggle" checked>
+              </label>
+              <label>
+                Include logbook
+                <input type="checkbox" id="includeLogbookToggle" checked>
+              </label>
+              <label>
+                History hours
+                <input type="number" id="historyHoursInput" min="1" max="24" value="6">
+              </label>
+              <label>
+                What changed recently
+                <input type="checkbox" id="recentModeToggle">
+              </label>
+              <label>
+                Incognito mode
+                <input type="checkbox" id="incognitoToggle">
+              </label>
+              <label>
+                Focus areas (comma-separated)
+                <input type="text" id="focusAreasInput" placeholder="Kitchen, Living Room">
+              </label>
+              <label>
+                Focus entities (comma-separated)
+                <input type="text" id="focusEntitiesInput" placeholder="light.kitchen, sensor.temp">
+              </label>
+            </div>
+          </details>
+
+          <details class="tool-section">
+            <summary>Automation Assistant</summary>
+            <div class="tool-grid">
+              <label>
+                Describe automation
+                <textarea id="automationDescription" rows="3" placeholder="Turn on the porch light when motion is detected at night."></textarea>
+              </label>
+            </div>
+            <div class="tool-actions">
+              <button id="automationGenerateBtn">Generate</button>
+              <button id="automationValidateBtn">Validate</button>
+              <button id="automationCreateBtn">Create</button>
+            </div>
+            <div class="tool-output" id="automationOutput">No automation generated yet.</div>
+          </details>
+
+          <details class="tool-section">
+            <summary>Notification Composer</summary>
+            <div class="tool-grid">
+              <label>
+                Event type
+                <select id="notificationEventType">
+                  <option value="garage_open">garage_open</option>
+                  <option value="leak_detected">leak_detected</option>
+                  <option value="motion_at_night">motion_at_night</option>
+                  <option value="hvac_anomaly">hvac_anomaly</option>
+                  <option value="custom">custom</option>
+                </select>
+              </label>
+              <label>
+                Custom event (if custom)
+                <input type="text" id="notificationCustomEvent" placeholder="e.g. door_left_open" disabled>
+              </label>
+              <label>
+                Related entities (comma-separated)
+                <input type="text" id="notificationEntities" placeholder="binary_sensor.garage, camera.driveway">
+              </label>
+              <label>
+                Urgency
+                <select id="notificationUrgency">
+                  <option value="low">low</option>
+                  <option value="normal" selected>normal</option>
+                  <option value="high">high</option>
+                </select>
+              </label>
+              <label>
+                Photo URL (optional)
+                <input type="text" id="notificationPhotoUrl" placeholder="https://...">
+              </label>
+              <label>
+                Notify service (e.g. notify.notify)
+                <input type="text" id="notificationService" value="notify.notify">
+              </label>
+            </div>
+            <div class="tool-actions">
+              <button id="notificationGenerateBtn">Generate</button>
+              <button id="notificationSendBtn">Send</button>
+            </div>
+            <div class="tool-output" id="notificationOutput">No notification composed yet.</div>
+          </details>
+        </div>
+
         <div class="input-area">
           <div class="input-container">
             <textarea 
@@ -333,6 +513,13 @@ class ChatGPTPlusPanel extends HTMLElement {
         const input = this.shadowRoot.getElementById('messageInput');
         const sendBtn = this.shadowRoot.getElementById('sendBtn');
         const newChatBtn = this.shadowRoot.getElementById('newChatBtn');
+        const automationGenerateBtn = this.shadowRoot.getElementById('automationGenerateBtn');
+        const automationValidateBtn = this.shadowRoot.getElementById('automationValidateBtn');
+        const automationCreateBtn = this.shadowRoot.getElementById('automationCreateBtn');
+        const notificationGenerateBtn = this.shadowRoot.getElementById('notificationGenerateBtn');
+        const notificationSendBtn = this.shadowRoot.getElementById('notificationSendBtn');
+        const notificationEventType = this.shadowRoot.getElementById('notificationEventType');
+        const notificationCustomEvent = this.shadowRoot.getElementById('notificationCustomEvent');
 
         // Auto-resize textarea
         input.addEventListener('input', () => {
@@ -353,6 +540,18 @@ class ChatGPTPlusPanel extends HTMLElement {
 
         // New chat button
         newChatBtn.addEventListener('click', () => this._newConversation());
+
+        automationGenerateBtn.addEventListener('click', () => this._generateAutomation());
+        automationValidateBtn.addEventListener('click', () => this._validateAutomation());
+        automationCreateBtn.addEventListener('click', () => this._createAutomation());
+
+        notificationGenerateBtn.addEventListener('click', () => this._generateNotification());
+        notificationSendBtn.addEventListener('click', () => this._sendNotification());
+
+        notificationEventType.addEventListener('change', () => {
+            const isCustom = notificationEventType.value === 'custom';
+            notificationCustomEvent.disabled = !isCustom;
+        });
     }
 
     async _sendMessage() {
@@ -362,6 +561,7 @@ class ChatGPTPlusPanel extends HTMLElement {
         if (!message || this._isLoading) return;
 
         const requestId = this._generateRequestId();
+        const contextOverrides = this._getContextOverrides();
 
         // Add user message
         this._addMessage('user', message);
@@ -377,6 +577,7 @@ class ChatGPTPlusPanel extends HTMLElement {
             await this._hass.callService('chatgpt_plus_ha', 'send_message', {
                 message: message,
                 request_id: requestId,
+                ...contextOverrides,
             });
 
             const response = await this._waitForResponse(requestId);
@@ -505,6 +706,268 @@ class ChatGPTPlusPanel extends HTMLElement {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    _getContextOverrides() {
+        const includeContext = this.shadowRoot.getElementById('includeContextToggle').checked;
+        const includeHistory = this.shadowRoot.getElementById('includeHistoryToggle').checked;
+        const includeLogbook = this.shadowRoot.getElementById('includeLogbookToggle').checked;
+        const historyHours = Number(this.shadowRoot.getElementById('historyHoursInput').value || 6);
+        const recentMode = this.shadowRoot.getElementById('recentModeToggle').checked;
+        const incognito = this.shadowRoot.getElementById('incognitoToggle').checked;
+        const focusAreas = this._splitCsv(this.shadowRoot.getElementById('focusAreasInput').value);
+        const focusEntities = this._splitCsv(this.shadowRoot.getElementById('focusEntitiesInput').value);
+
+        return {
+            include_context: includeContext,
+            include_history: includeHistory,
+            include_logbook: includeLogbook,
+            history_hours: historyHours,
+            recent_mode: recentMode,
+            incognito: incognito,
+            focus_areas: focusAreas,
+            focus_entities: focusEntities,
+        };
+    }
+
+    _splitCsv(value) {
+        return value
+            .split(',')
+            .map((item) => item.trim())
+            .filter((item) => item.length);
+    }
+
+    async _callServiceWithResponse(domain, service, serviceData) {
+        const response = await this._hass.connection.sendMessagePromise({
+            type: 'call_service',
+            domain,
+            service,
+            service_data: serviceData,
+            return_response: true,
+        });
+
+        if (response && response.response) {
+            const key = `${domain}.${service}`;
+            return response.response[key] || response.response;
+        }
+
+        return response;
+    }
+
+    async _generateAutomation() {
+        const description = this.shadowRoot.getElementById('automationDescription').value.trim();
+        const output = this.shadowRoot.getElementById('automationOutput');
+        if (!description) {
+            output.textContent = 'Please describe the automation first.';
+            return;
+        }
+
+        output.textContent = 'Generating automation...';
+        const contextOverrides = this._getContextOverrides();
+
+        try {
+            const result = await this._callServiceWithResponse('chatgpt_plus_ha', 'generate_automation', {
+                description,
+                include_context: contextOverrides.include_context,
+                include_history: contextOverrides.include_history,
+                include_logbook: contextOverrides.include_logbook,
+                history_hours: contextOverrides.history_hours,
+            });
+
+            if (!result || !result.success) {
+                output.textContent = `Failed to generate automation: ${result?.message || 'Unknown error'}`;
+                return;
+            }
+
+            this._automation = {
+                yaml: result.yaml || '',
+                validation: result.validation || null,
+                explanation: result.explanation || '',
+                assumptions: result.assumptions || '',
+                questions: result.questions_if_needed || '',
+            };
+
+            this._renderAutomationOutput();
+        } catch (error) {
+            output.textContent = `Failed to generate automation: ${error.message || error}`;
+        }
+    }
+
+    async _validateAutomation() {
+        const output = this.shadowRoot.getElementById('automationOutput');
+        if (!this._automation.yaml) {
+            output.textContent = 'Generate YAML before validating.';
+            return;
+        }
+
+        output.textContent = 'Validating YAML...';
+
+        try {
+            const result = await this._callServiceWithResponse('chatgpt_plus_ha', 'generate_automation', {
+                mode: 'validate',
+                yaml: this._automation.yaml,
+            });
+
+            if (!result || !result.validation) {
+                output.textContent = 'Validation failed to return results.';
+                return;
+            }
+
+            this._automation.validation = result.validation;
+            this._renderAutomationOutput();
+        } catch (error) {
+            output.textContent = `Validation failed: ${error.message || error}`;
+        }
+    }
+
+    async _createAutomation() {
+        const output = this.shadowRoot.getElementById('automationOutput');
+        const validation = this._automation.validation;
+        if (!validation || !validation.valid || !validation.config) {
+            output.textContent = 'Validation must pass before creating an automation.';
+            return;
+        }
+
+        try {
+            await this._hass.connection.sendMessagePromise({
+                type: 'config/automation/create',
+                config: validation.config,
+            });
+            output.textContent = 'Automation created successfully.';
+        } catch (error) {
+            output.textContent =
+                'Could not create automation via API. Copy the YAML into Settings > Automations or automations.yaml.\n\n' +
+                this._automation.yaml;
+        }
+    }
+
+    _renderAutomationOutput() {
+        const output = this.shadowRoot.getElementById('automationOutput');
+        const lines = [];
+        if (this._automation.yaml) {
+            lines.push('YAML:\n' + this._automation.yaml);
+        }
+        if (this._automation.explanation) {
+            lines.push('\nExplanation:\n' + this._automation.explanation);
+        }
+        if (this._automation.assumptions) {
+            lines.push('\nAssumptions:\n' + this._automation.assumptions);
+        }
+        if (this._automation.questions) {
+            lines.push('\nQuestions:\n' + this._automation.questions);
+        }
+        if (this._automation.validation) {
+            const validation = this._automation.validation;
+            lines.push('\nValidation:\n' + (validation.valid ? 'Valid' : 'Invalid'));
+            if (validation.errors?.length) {
+                lines.push('Errors:\n- ' + validation.errors.join('\n- '));
+            }
+            if (validation.warnings?.length) {
+                lines.push('Warnings:\n- ' + validation.warnings.join('\n- '));
+            }
+        }
+        output.textContent = lines.join('\n');
+    }
+
+    async _generateNotification() {
+        const output = this.shadowRoot.getElementById('notificationOutput');
+        const eventTypeSelect = this.shadowRoot.getElementById('notificationEventType');
+        const customEvent = this.shadowRoot.getElementById('notificationCustomEvent').value.trim();
+        const eventType = eventTypeSelect.value === 'custom' ? customEvent : eventTypeSelect.value;
+        const entities = this._splitCsv(this.shadowRoot.getElementById('notificationEntities').value);
+        const urgency = this.shadowRoot.getElementById('notificationUrgency').value;
+        const photoUrl = this.shadowRoot.getElementById('notificationPhotoUrl').value.trim();
+        const contextOverrides = this._getContextOverrides();
+
+        if (!eventType) {
+            output.textContent = 'Please provide an event type.';
+            return;
+        }
+
+        output.textContent = 'Composing notification...';
+
+        try {
+            const result = await this._callServiceWithResponse('chatgpt_plus_ha', 'compose_notification', {
+                event_type: eventType,
+                entities,
+                urgency,
+                photo_url: photoUrl || undefined,
+                include_context: contextOverrides.include_context,
+                include_history: contextOverrides.include_history,
+                include_logbook: contextOverrides.include_logbook,
+                history_hours: contextOverrides.history_hours,
+            });
+
+            if (!result || !result.success) {
+                output.textContent = `Failed to compose notification: ${result?.message || 'Unknown error'}`;
+                return;
+            }
+
+            this._notification = result;
+            this._renderNotificationOutput();
+        } catch (error) {
+            output.textContent = `Failed to compose notification: ${error.message || error}`;
+        }
+    }
+
+    _renderNotificationOutput() {
+        const output = this.shadowRoot.getElementById('notificationOutput');
+        if (!this._notification) {
+            output.textContent = 'No notification composed yet.';
+            return;
+        }
+
+        const lines = [];
+        lines.push(`Title: ${this._notification.title || ''}`);
+        lines.push(`Message: ${this._notification.message || ''}`);
+        if (this._notification.actions?.length) {
+            lines.push('Actions: ' + this._notification.actions.join(', '));
+        }
+        if (this._notification.follow_up_questions?.length) {
+            lines.push('Follow-up: ' + this._notification.follow_up_questions.join(', '));
+        }
+        output.textContent = lines.join('\n');
+    }
+
+    async _sendNotification() {
+        const output = this.shadowRoot.getElementById('notificationOutput');
+        if (!this._notification) {
+            output.textContent = 'Generate a notification before sending.';
+            return;
+        }
+
+        if (!confirm('Send this notification now?')) {
+            return;
+        }
+
+        const serviceText = this.shadowRoot.getElementById('notificationService').value.trim();
+        const [domain, service] = serviceText.split('.');
+        if (!domain || !service) {
+            output.textContent = 'Notify service must be formatted like notify.notify.';
+            return;
+        }
+
+        const data = {};
+        if (this._notification.actions?.length) {
+            data.actions = this._notification.actions.map((action) => ({
+                action,
+                title: action,
+            }));
+        }
+        if (this._notification.photo_url) {
+            data.image = this._notification.photo_url;
+        }
+
+        try {
+            await this._hass.callService(domain, service, {
+                title: this._notification.title,
+                message: this._notification.message,
+                data,
+            });
+            output.textContent = 'Notification sent.';
+        } catch (error) {
+            output.textContent = `Failed to send notification: ${error.message || error}`;
+        }
     }
 
     _generateRequestId() {
