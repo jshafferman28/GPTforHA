@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.9
+- Make response detection resilient to ChatGPT UI changes and streaming states.
+- Extract assistant text from the markdown container when available.
+
 ## 1.1.8
 - Detect when a message was not posted and retry sending before waiting on a response.
 - Improve send button selectors and input handling for the updated ChatGPT UI.

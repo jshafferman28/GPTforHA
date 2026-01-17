@@ -24,12 +24,12 @@ const SELECTORS = {
     sendButton: 'button[data-testid="send-button"], button[aria-label="Send message"], button[aria-label="Send prompt"]',
 
     // Response detection
-    assistantMessage: '[data-message-author-role="assistant"]',
-    assistantMessageFallback: 'article[data-testid="conversation-turn"][data-message-author-role="assistant"]',
+    assistantMessage: 'article[data-testid="conversation-turn"][data-message-author-role="assistant"]',
+    assistantMessageFallback: '[data-message-author-role="assistant"]',
     streamingIndicator: '[data-testid="stop-button"], button[aria-label="Stop generating"]',
     regenerateButton: 'button[data-testid="regenerate-button"], button[aria-label="Regenerate"]',
-    userMessage: '[data-message-author-role="user"]',
-    userMessageFallback: 'article[data-testid="conversation-turn"][data-message-author-role="user"]',
+    userMessage: 'article[data-testid="conversation-turn"][data-message-author-role="user"]',
+    userMessageFallback: '[data-message-author-role="user"]',
 
     // New conversation
     newChatButton: 'a[href="/"]',
@@ -323,8 +323,9 @@ export class ChatGPTClient {
      */
     async _waitForResponse({ baseline, timeout = RESPONSE_TIMEOUT_MS } = {}) {
         const startTime = Date.now();
-        const stableCyclesRequired = 4;
+        const stableCyclesRequired = 5;
         let stableCycles = 0;
+        let noStreamCycles = 0;
         let hasResponseStarted = false;
 
         const initialSnapshot = baseline || (await this._snapshotAssistantMessages());
@@ -342,7 +343,7 @@ export class ChatGPTClient {
             if (!hasResponseStarted) {
                 if (currentCount > baselineCount || (currentText && currentText !== baselineText)) {
                     hasResponseStarted = true;
-                    lastText = currentText;
+                    lastText = currentText || lastText;
                 }
             } else if (currentText) {
                 if (currentText === lastText) {
@@ -352,8 +353,18 @@ export class ChatGPTClient {
                     lastText = currentText;
                 }
 
+                if (!streamingIndicator || regenerateButton) {
+                    noStreamCycles += 1;
+                } else {
+                    noStreamCycles = 0;
+                }
+
+                if (noStreamCycles >= 2 && currentText) {
+                    return currentText.trim();
+                }
+
                 if (stableCycles >= stableCyclesRequired) {
-                    if (!streamingIndicator || regenerateButton || stableCycles >= stableCyclesRequired + 1) {
+                    if (!streamingIndicator || regenerateButton || stableCycles >= stableCyclesRequired + 2) {
                         return currentText.trim();
                     }
                 }
@@ -407,7 +418,16 @@ export class ChatGPTClient {
             return '';
         }
         const lastMessage = messages[messages.length - 1];
-        const text = await lastMessage.textContent();
+        try {
+            const markdown = await lastMessage.$('.markdown');
+            if (markdown) {
+                const text = await markdown.innerText();
+                return text ? text.trim() : '';
+            }
+        } catch {
+            // Fall back to generic text extraction.
+        }
+        const text = await lastMessage.innerText();
         return text ? text.trim() : '';
     }
 
