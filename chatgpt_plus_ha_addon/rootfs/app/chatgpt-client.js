@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 const CHATGPT_URL = 'https://chatgpt.com';
 const LOGIN_URL = 'https://chatgpt.com/auth/login';
 const SESSION_API_URL = 'https://chatgpt.com/api/auth/session';
+const RESPONSE_TIMEOUT_MS = Number(process.env.RESPONSE_TIMEOUT_MS) || 180000;
 
 // Selectors for ChatGPT interface (may need updates as UI changes)
 const SELECTORS = {
@@ -20,12 +21,15 @@ const SELECTORS = {
 
     // Chat interface
     messageInput: '#prompt-textarea',
-    sendButton: 'button[data-testid="send-button"]',
+    sendButton: 'button[data-testid="send-button"], button[aria-label="Send message"], button[aria-label="Send prompt"]',
 
     // Response detection
     assistantMessage: '[data-message-author-role="assistant"]',
     assistantMessageFallback: 'article[data-testid="conversation-turn"][data-message-author-role="assistant"]',
     streamingIndicator: '[data-testid="stop-button"], button[aria-label="Stop generating"]',
+    regenerateButton: 'button[data-testid="regenerate-button"], button[aria-label="Regenerate"]',
+    userMessage: '[data-message-author-role="user"]',
+    userMessageFallback: 'article[data-testid="conversation-turn"][data-message-author-role="user"]',
 
     // New conversation
     newChatButton: 'a[href="/"]',
@@ -240,11 +244,11 @@ export class ChatGPTClient {
             await this.page.waitForTimeout(1000);
         }
 
+        const baseline = await this._snapshotAssistantMessages();
+        const userBaseline = await this._snapshotUserMessages();
+
         // Find the message input
-        let input = await this.page.$(SELECTORS.messageInput);
-        if (!input) {
-            input = await this.page.$(SELECTORS.textareaFallback);
-        }
+        const input = await this._findMessageInput();
 
         if (!input) {
             throw new Error('Could not find message input field');
@@ -252,7 +256,12 @@ export class ChatGPTClient {
 
         // Clear any existing text and type the message
         await input.click();
-        await input.fill(message);
+        await input.fill('');
+        if (message.length > 500) {
+            await input.fill(message);
+        } else {
+            await input.type(message, { delay: 8 });
+        }
 
         // Small delay before sending
         await this.page.waitForTimeout(300);
@@ -264,14 +273,32 @@ export class ChatGPTClient {
         }
 
         if (sendButton) {
-            await sendButton.click();
+            const isDisabled = await sendButton.evaluate(
+                (el) => el.disabled || el.getAttribute('aria-disabled') === 'true'
+            );
+            if (!isDisabled) {
+                await sendButton.click();
+            } else {
+                await input.press('Enter');
+            }
         } else {
             // Try pressing Enter as fallback
             await input.press('Enter');
         }
 
+        const posted = await this._waitForSendConfirmation(userBaseline, message);
+        if (!posted) {
+            console.warn('Send did not register, retrying Enter key');
+            await input.focus();
+            await input.press('Enter');
+            const postedAfterRetry = await this._waitForSendConfirmation(userBaseline, message, 8000);
+            if (!postedAfterRetry) {
+                throw new Error('Failed to submit message to ChatGPT');
+            }
+        }
+
         // Wait for response
-        const response = await this._waitForResponse();
+        const response = await this._waitForResponse({ baseline, timeout: RESPONSE_TIMEOUT_MS });
 
         // Extract conversation ID from URL if not set
         if (!this.currentConversationId) {
@@ -294,15 +321,15 @@ export class ChatGPTClient {
     /**
      * Wait for ChatGPT to finish responding
      */
-    async _waitForResponse(timeout = 120000) {
+    async _waitForResponse({ baseline, timeout = RESPONSE_TIMEOUT_MS } = {}) {
         const startTime = Date.now();
         const stableCyclesRequired = 4;
         let stableCycles = 0;
         let hasResponseStarted = false;
 
-        const initialMessages = await this._getAssistantMessages();
-        const baselineCount = initialMessages.length;
-        const baselineText = await this._getLastMessageText(initialMessages);
+        const initialSnapshot = baseline || (await this._snapshotAssistantMessages());
+        const baselineCount = initialSnapshot.count;
+        const baselineText = initialSnapshot.text;
         let lastText = baselineText;
 
         while (Date.now() - startTime < timeout) {
@@ -310,6 +337,7 @@ export class ChatGPTClient {
             const currentCount = messages.length;
             const currentText = await this._getLastMessageText(messages);
             const streamingIndicator = await this.page.$(SELECTORS.streamingIndicator);
+            const regenerateButton = await this.page.$(SELECTORS.regenerateButton);
 
             if (!hasResponseStarted) {
                 if (currentCount > baselineCount || (currentText && currentText !== baselineText)) {
@@ -325,7 +353,7 @@ export class ChatGPTClient {
                 }
 
                 if (stableCycles >= stableCyclesRequired) {
-                    if (!streamingIndicator || stableCycles >= stableCyclesRequired + 1) {
+                    if (!streamingIndicator || regenerateButton || stableCycles >= stableCyclesRequired + 1) {
                         return currentText.trim();
                     }
                 }
@@ -334,13 +362,42 @@ export class ChatGPTClient {
             await this.page.waitForTimeout(500);
         }
 
+        if (hasResponseStarted && lastText) {
+            console.warn('Timeout waiting for response; returning last assistant message');
+            return lastText.trim();
+        }
+
         throw new Error('Timeout waiting for response');
+    }
+
+    async _snapshotAssistantMessages() {
+        const messages = await this._getAssistantMessages();
+        return {
+            count: messages.length,
+            text: await this._getLastMessageText(messages),
+        };
+    }
+
+    async _snapshotUserMessages() {
+        const messages = await this._getUserMessages();
+        return {
+            count: messages.length,
+            text: await this._getLastUserMessageText(messages),
+        };
     }
 
     async _getAssistantMessages() {
         let messages = await this.page.$$(SELECTORS.assistantMessage);
         if (!messages.length) {
             messages = await this.page.$$(SELECTORS.assistantMessageFallback);
+        }
+        return messages;
+    }
+
+    async _getUserMessages() {
+        let messages = await this.page.$$(SELECTORS.userMessage);
+        if (!messages.length) {
+            messages = await this.page.$$(SELECTORS.userMessageFallback);
         }
         return messages;
     }
@@ -352,6 +409,55 @@ export class ChatGPTClient {
         const lastMessage = messages[messages.length - 1];
         const text = await lastMessage.textContent();
         return text ? text.trim() : '';
+    }
+
+    async _getLastUserMessageText(messages) {
+        return this._getLastMessageText(messages);
+    }
+
+    async _waitForSendConfirmation(baseline, message, timeout = 10000) {
+        const startTime = Date.now();
+        const prefix = message.trim().slice(0, 40);
+        while (Date.now() - startTime < timeout) {
+            const userMessages = await this._getUserMessages();
+            const lastUserText = await this._getLastUserMessageText(userMessages);
+            const streamingIndicator = await this.page.$(SELECTORS.streamingIndicator);
+            const regenerateButton = await this.page.$(SELECTORS.regenerateButton);
+
+            if (userMessages.length > baseline.count) {
+                return true;
+            }
+
+            if (prefix && lastUserText && lastUserText.includes(prefix)) {
+                return true;
+            }
+
+            if (streamingIndicator || regenerateButton) {
+                return true;
+            }
+
+            await this.page.waitForTimeout(300);
+        }
+
+        return false;
+    }
+
+    async _findMessageInput(timeout = 15000) {
+        const selectors = [SELECTORS.messageInput, SELECTORS.textareaFallback];
+        for (const selector of selectors) {
+            try {
+                const handle = await this.page.waitForSelector(selector, {
+                    state: 'visible',
+                    timeout,
+                });
+                if (handle) {
+                    return handle;
+                }
+            } catch {
+                // Try next selector
+            }
+        }
+        return null;
     }
 
     /**

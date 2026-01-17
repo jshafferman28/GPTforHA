@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.8
+- Detect when a message was not posted and retry sending before waiting on a response.
+- Improve send button selectors and input handling for the updated ChatGPT UI.
+
+## 1.1.7
+- Use a pre-send baseline for response detection to avoid missing fast replies.
+- Align response wait timeout with the integration default.
+
 ## 1.1.6
 - Improve response detection to avoid timeouts on completed replies.
 
