@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.10
+- Capture assistant replies from the ChatGPT network stream as a fallback to DOM parsing.
+- Use whichever response signal arrives first to avoid missing replies.
+
 ## 1.1.9
 - Make response detection resilient to ChatGPT UI changes and streaming states.
 - Extract assistant text from the markdown container when available.

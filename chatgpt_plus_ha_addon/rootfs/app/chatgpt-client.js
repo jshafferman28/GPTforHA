@@ -246,6 +246,10 @@ export class ChatGPTClient {
 
         const baseline = await this._snapshotAssistantMessages();
         const userBaseline = await this._snapshotUserMessages();
+        const networkPromise = this._waitForNetworkResponse(RESPONSE_TIMEOUT_MS).catch((error) => {
+            console.warn('Network response capture failed:', error.message);
+            return null;
+        });
 
         // Find the message input
         const input = await this._findMessageInput();
@@ -298,7 +302,11 @@ export class ChatGPTClient {
         }
 
         // Wait for response
-        const response = await this._waitForResponse({ baseline, timeout: RESPONSE_TIMEOUT_MS });
+        const response = await this._waitForAssistantResponse({
+            baseline,
+            timeout: RESPONSE_TIMEOUT_MS,
+            networkPromise,
+        });
 
         // Extract conversation ID from URL if not set
         if (!this.currentConversationId) {
@@ -381,6 +389,29 @@ export class ChatGPTClient {
         throw new Error('Timeout waiting for response');
     }
 
+    async _waitForAssistantResponse({ baseline, timeout, networkPromise } = {}) {
+        const domPromise = this._waitForResponse({ baseline, timeout }).catch((error) => {
+            console.warn('DOM response capture failed:', error.message);
+            return null;
+        });
+        const networkSafe = networkPromise || Promise.resolve(null);
+
+        const first = await Promise.race([domPromise, networkSafe]);
+        if (first) {
+            return first;
+        }
+
+        const [domResult, networkResult] = await Promise.all([domPromise, networkSafe]);
+        if (domResult) {
+            return domResult;
+        }
+        if (networkResult) {
+            return networkResult;
+        }
+
+        throw new Error('Failed to capture assistant response');
+    }
+
     async _snapshotAssistantMessages() {
         const messages = await this._getAssistantMessages();
         return {
@@ -429,6 +460,68 @@ export class ChatGPTClient {
         }
         const text = await lastMessage.innerText();
         return text ? text.trim() : '';
+    }
+
+    async _waitForNetworkResponse(timeout) {
+        const response = await this.page.waitForResponse(
+            (resp) => {
+                const url = resp.url();
+                if (!url.includes('/backend-api/conversation')) {
+                    return false;
+                }
+                const request = resp.request();
+                if (request.method() !== 'POST') {
+                    return false;
+                }
+                return true;
+            },
+            { timeout }
+        );
+
+        const text = await response.text();
+        const payload = this._extractAssistantFromSse(text);
+        console.log('Captured assistant response from network stream');
+        if (payload.conversationId) {
+            this.currentConversationId = payload.conversationId;
+        }
+        if (!payload.text) {
+            throw new Error('No assistant message in network response');
+        }
+        return payload.text;
+    }
+
+    _extractAssistantFromSse(raw) {
+        const lines = raw.split('\n');
+        let latestText = '';
+        let conversationId = null;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) {
+                continue;
+            }
+            const payload = trimmed.slice(5).trim();
+            if (!payload || payload === '[DONE]') {
+                continue;
+            }
+            try {
+                const data = JSON.parse(payload);
+                conversationId = data.conversation_id || data.conversationId || conversationId;
+                const message = data.message;
+                if (message && message.author && message.author.role === 'assistant') {
+                    const content = message.content || {};
+                    const parts = Array.isArray(content.parts) ? content.parts : [];
+                    const text = parts.filter((part) => typeof part === 'string').join('\n').trim();
+                    if (text) {
+                        latestText = text;
+                    }
+                }
+            } catch {
+                // Ignore malformed lines.
+            }
+        }
+
+        return { text: latestText, conversationId };
     }
 
     async _getLastUserMessageText(messages) {
